@@ -281,7 +281,7 @@ __help__ = """
 __mod_name__ = "Admin"
 
 PIN_HANDLER = CommandHandler("pin", pin, pass_args=True, filters=Filters.group)
-ARABIC_PIN_HANDLER = RegexHandler(r"^تثبيت$", pin, pass_args=True, filters=Filters.group, friendly="تثبيت")
+ARABIC_PIN_HANDLER = RegexHandler(r"^تثبيت$", pin, filters=Filters.group, friendly="تثبيت")
 UNPIN_HANDLER = CommandHandler("unpin", unpin, filters=Filters.group)
 ARABIC_UNPIN_HANDLER = RegexHandler(r"^الغاء تثبيت$", unpin, filters=Filters.group, friendly="الغاء تثبيت")
 LINK_HANDLER = DisableAbleCommandHandler("link", link_public)
