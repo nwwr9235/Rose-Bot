@@ -111,7 +111,7 @@ def demote(bot: Bot, update: Update, args: List[str]) -> str:
                                           mention_html(user_member.user.id, user_member.user.first_name))
 
     except BadRequest:
-        message.reply_text("تعذر خفض الرتبة. قد لا أكون مشرفاً، أو أن رتبة المشرف تم تعيينها من قبل مستخدم آخر، لذا لا يمكنني التصرف تجاهه!
+        message.reply_text("تعذر خفض الرتبة. قد لا أكون مشرفاً، أو أن رتبة المشرف تم تعيينها من قبل مستخدم آخر، لذا لا يمكنني التصرف تجاهه!")
         return ""
 
 
