@@ -111,8 +111,7 @@ def demote(bot: Bot, update: Update, args: List[str]) -> str:
                                           mention_html(user_member.user.id, user_member.user.first_name))
 
     except BadRequest:
-        message.reply_text("Could not demote. I might not be admin, or the admin status was appointed by another "
-                           "user, so I can't act upon them!")
+        message.reply_text("تعذر خفض الرتبة. قد لا أكون مشرفاً، أو أن رتبة المشرف تم تعيينها من قبل مستخدم آخر، لذا لا يمكنني التصرف تجاهه!
         return ""
 
 
@@ -204,8 +203,7 @@ def link_public(bot: Bot, update: Update):
             message.reply_text("Link of *{}*:\n`{}`".format(chat.title, invitelink), parse_mode=ParseMode.MARKDOWN)
         else:
             message.reply_text("The admins of *{}* haven't set link."
-                               " \nLink can be set by following: `/setlink` and get link of chat "
-                               "using /invitelink, paste the link after `/setlink` append.".format(chat.title), parse_mode=ParseMode.MARKDOWN)
+                               " \nيمكن تعيين الرابط كالتالي: استخدم `/setlink` ثم الصق الرابط الذي حصلت عليه عبر `/invitelink`.".format(chat.title), parse_mode=ParseMode.MARKDOWN)
     else:
         message.reply_text("I can only can save links for supergroups and channels, sorry!")
 
@@ -255,51 +253,71 @@ def __chat_settings__(chat_id, user_id):
 
 
 __help__ = """
-Lazy to promote or demote someone for admins? Want to see basic information about chat? \
-All stuff about chatroom such as admin lists, pinning or grabbing an invite link can be \
-done easily using the bot.
+هل أنت كسول لترقية أو خفض رتبة أحد المشرفين؟ هل تريد رؤية معلومات أساسية عن الدردشة؟ \
+يمكن القيام بكل ما يتعلق بغرفة الدردشة مثل قوائم المشرفين، التثبيت، أو الحصول على رابط دعوة \
+بسهولة باستخدام البوت.
 
- - /adminlist: list of admins and members in the chat
- - /staff: same as /adminlist
- - /link: get the group link for this chat.
- - #link: same as /link
+ - قائمة المشرفين: قائمة المشرفين والأعضاء في الدردشة
+ - طاقم العمل: نفس وظيفة قائمة المشرفين
+ - رابط: الحصول على رابط المجموعة لهذه الدردشة.
+ - #رابط: نفس وظيفة رابط
 
-*Admin only:*
- - /pin: silently pins the message replied to - add 'loud' or 'notify' to give notifies to users.
- - /unpin: unpins the currently pinned message.
- - /invitelink: generates new invite link.
- - /setlink <your group link here>: set the group link for this chat.
- - /clearlink: clear the group link for this chat.
- - /promote: promotes the user replied to
- - /demote: demotes the user replied to
+*للمشرفين فقط:*
+ - تثبيت: تثبيت الرسالة التي تم الرد عليها بصمت - أضف 'loud' أو 'notify' لإرسال إشعارات للمستخدمين.
+ - الغاء تثبيت: إلغاء تثبيت الرسالة المثبتة حالياً.
+ - رابط دعوة: إنشاء رابط دعوة جديد.
+ - تعيين رابط <رابط مجموعتك هنا>: تعيين رابط المجموعة لهذه الدردشة.
+ - مسح الرابط: مسح رابط المجموعة لهذه الدردشة.
+ - ترقية: ترقية المستخدم الذي تم الرد عليه.
+ - خفض رتبة: خفض رتبة المستخدم الذي تم الرد عليه.
  
- An example of set a link:
-`/setlink https://t.me/joinchat/HwiIk1RADK5gRMr9FBdOrwtae`
+مثال على تعيين رابط:
+	`تعيين رابط https://t.me/joinchat/HwiIk1RADK5gRMr9FBdOrwtae`
 
-An example of promoting someone to admins:
-`/promote @username`; this promotes a user to admins.
+مثال على ترقية شخص إلى مشرف:
+	`ترقية @username`; هذا يقوم بترقية المستخدم إلى مشرفين.
 """
 
 __mod_name__ = "Admin"
 
 PIN_HANDLER = CommandHandler("pin", pin, pass_args=True, filters=Filters.group)
+ARABIC_PIN_HANDLER = RegexHandler(r"^تثبيت$", pin, pass_args=True, filters=Filters.group, friendly="تثبيت")
 UNPIN_HANDLER = CommandHandler("unpin", unpin, filters=Filters.group)
+ARABIC_UNPIN_HANDLER = RegexHandler(r"^الغاء تثبيت$", unpin, filters=Filters.group, friendly="الغاء تثبيت")
 LINK_HANDLER = DisableAbleCommandHandler("link", link_public)
+ARABIC_LINK_HANDLER = RegexHandler(r"^رابط$", link_public, friendly="رابط")
 SET_LINK_HANDLER = CommandHandler("setlink", set_link, filters=Filters.group)
+ARABIC_SET_LINK_HANDLER = RegexHandler(r"^تعيين رابط (.+)$", set_link, pass_args=True, filters=Filters.group, friendly="تعيين رابط")
 RESET_LINK_HANDLER = CommandHandler("clearlink", clear_link, filters=Filters.group)
+ARABIC_CLEAR_LINK_HANDLER = RegexHandler(r"^مسح الرابط$", clear_link, filters=Filters.group, friendly="مسح الرابط")
 HASH_LINK_HANDLER = RegexHandler("#link", link_public)
+ARABIC_HASH_LINK_HANDLER = RegexHandler(r"^#رابط$", link_public, friendly="#رابط")
 INVITE_HANDLER = CommandHandler("invitelink", invite, filters=Filters.group)
+ARABIC_INVITE_HANDLER = RegexHandler(r"^رابط دعوة$", invite, filters=Filters.group, friendly="رابط دعوة")
 PROMOTE_HANDLER = CommandHandler("promote", promote, pass_args=True, filters=Filters.group)
+ARABIC_PROMOTE_HANDLER = RegexHandler(r"^ترقية (.+)$", promote, pass_args=True, filters=Filters.group, friendly="ترقية")
 DEMOTE_HANDLER = CommandHandler("demote", demote, pass_args=True, filters=Filters.group)
+ARABIC_DEMOTE_HANDLER = RegexHandler(r"^خفض رتبة (.+)$", demote, pass_args=True, filters=Filters.group, friendly="خفض رتبة")
 ADMINLIST_HANDLER = DisableAbleCommandHandler(["adminlist", "staff"], adminlist, filters=Filters.group)
+ARABIC_ADMINLIST_HANDLER = RegexHandler(r"^قائمة المشرفين$", adminlist, filters=Filters.group, friendly="قائمة المشرفين")
 
 dispatcher.add_handler(PIN_HANDLER)
+dispatcher.add_handler(ARABIC_PIN_HANDLER)
 dispatcher.add_handler(UNPIN_HANDLER)
+dispatcher.add_handler(ARABIC_UNPIN_HANDLER)
 dispatcher.add_handler(INVITE_HANDLER)
+dispatcher.add_handler(ARABIC_INVITE_HANDLER)
 dispatcher.add_handler(LINK_HANDLER)
+dispatcher.add_handler(ARABIC_LINK_HANDLER)
 dispatcher.add_handler(SET_LINK_HANDLER)
+dispatcher.add_handler(ARABIC_SET_LINK_HANDLER)
 dispatcher.add_handler(RESET_LINK_HANDLER)
+dispatcher.add_handler(ARABIC_CLEAR_LINK_HANDLER)
 dispatcher.add_handler(HASH_LINK_HANDLER)
+dispatcher.add_handler(ARABIC_HASH_LINK_HANDLER)
 dispatcher.add_handler(PROMOTE_HANDLER)
+dispatcher.add_handler(ARABIC_PROMOTE_HANDLER)
 dispatcher.add_handler(DEMOTE_HANDLER)
+dispatcher.add_handler(ARABIC_DEMOTE_HANDLER)
 dispatcher.add_handler(ADMINLIST_HANDLER)
+dispatcher.add_handler(ARABIC_ADMINLIST_HANDLER)
