@@ -481,11 +481,11 @@ KICKME_HANDLER = DisableAbleCommandHandler("kickme", kickme, filters=Filters.gro
 RBAN_HANDLER = CommandHandler("rban", rban, pass_args=True, filters=CustomFilters.sudo_filter)
 RUNBAN_HANDLER = CommandHandler("runban", runban, pass_args=True, filters=CustomFilters.sudo_filter)
 
-# معالجات الأوامر العربية
-BAN_AR_HANDLER = MessageHandler(Filters.regex(r'^حظر$') & Filters.reply, ban, )
-TEMPBAN_AR_HANDLER = MessageHandler(Filters.regex(r'^حظر مؤقت (.+)$') & Filters.reply, temp_ban, )
-KICK_AR_HANDLER = MessageHandler(Filters.regex(r'^طرد$') & Filters.reply, kick, )
-UNBAN_AR_HANDLER = MessageHandler(Filters.regex(r'^الغاء حظر$') & Filters.reply, unban, )
+# معالجات الأوامر العربية (تم إزالة pass_args=True)
+BAN_AR_HANDLER = MessageHandler(Filters.regex(r'^حظر$') & Filters.reply, ban)
+TEMPBAN_AR_HANDLER = MessageHandler(Filters.regex(r'^حظر مؤقت (.+)$') & Filters.reply, temp_ban)
+KICK_AR_HANDLER = MessageHandler(Filters.regex(r'^طرد$') & Filters.reply, kick)
+UNBAN_AR_HANDLER = MessageHandler(Filters.regex(r'^الغاء حظر$') & Filters.reply, unban)
 KICKME_AR_HANDLER = MessageHandler(Filters.regex(r'^اطردني$'), kickme)
 
 dispatcher.add_handler(BAN_HANDLER)
