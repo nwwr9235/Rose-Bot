@@ -283,10 +283,10 @@ __help__ = """
 قفل البوتات سيمنع غير المشرفين من إضافة البوتات إلى الدردشة.
 
 *الأوامر العربية (بدون /):*
-أنواع الأقفال: عرض أنواع الأقفال الممكنة
-قفل <النوع>: قفل نوع معين
-فتح <النوع>: فتح نوع معين
-الأقفال: عرض الأقفال الحالية في الدردشة
+قفل <النوع>: لقفل نوع معين (مثال: "قفل الروابط")
+فتح <النوع>: لفتح نوع معين (مثال: "فتح الصور")
+أنواع الأقفال: عرض جميع أنواع الأقفال المتاحة
+الأقفال: عرض الأقفال الحالية
 """
 
 __mod_name__ = "الأقفال"
@@ -296,11 +296,65 @@ LOCK_HANDLER = CommandHandler("lock", lock, pass_args=True, filters=Filters.grou
 UNLOCK_HANDLER = CommandHandler("unlock", unlock, pass_args=True, filters=Filters.group)
 LOCKED_HANDLER = CommandHandler("locks", list_locks, filters=Filters.group)
 
-# معالجات الأوامر العربية
+# معالجات الأوامر العربية (بدون /)
+def lock_arabic(bot: Bot, update: Update, args: List[str]):
+    # args هنا سيتم تمريرها من خلال معالج الرسائل (لكننا سنستخرج من النص)
+    text = update.effective_message.text
+    # نتوقع صيغة مثل "قفل الروابط" أو "فتح الصور"
+    parts = text.split()
+    if len(parts) == 2 and parts[0] == "قفل":
+        lock_type = parts[1]
+        # نحتاج لتحويل الأسماء العربية إلى الإنجليزية
+        type_map = {
+            "الروابط": "url",
+            "الملصقات": "sticker",
+            "الصور": "photo",
+            "الفيديو": "video",
+            "الصوت": "audio",
+            "البوتات": "bots",
+            "الرسائل": "messages",
+            "الوسائط": "media",
+            "الكل": "all",
+            "إعادة التوجيه": "forward",
+            "الموقع": "location",
+            "الملفات": "document",
+            "المتحركة": "gif",
+            "جهات الاتصال": "contact",
+            "الألعاب": "game",
+        }
+        eng_type = type_map.get(lock_type, lock_type)
+        # استدعاء الدالة الأصلية مع args محاكاة
+        update.effective_message.text = f"/lock {eng_type}"
+        return lock(bot, update, [eng_type])
+    elif len(parts) == 2 and parts[0] == "فتح":
+        lock_type = parts[1]
+        type_map = {
+            "الروابط": "url",
+            "الملصقات": "sticker",
+            "الصور": "photo",
+            "الفيديو": "video",
+            "الصوت": "audio",
+            "البوتات": "bots",
+            "الرسائل": "messages",
+            "الوسائط": "media",
+            "الكل": "all",
+            "إعادة التوجيه": "forward",
+            "الموقع": "location",
+            "الملفات": "document",
+            "المتحركة": "gif",
+            "جهات الاتصال": "contact",
+            "الألعاب": "game",
+        }
+        eng_type = type_map.get(lock_type, lock_type)
+        update.effective_message.text = f"/unlock {eng_type}"
+        return unlock(bot, update, [eng_type])
+    else:
+        update.effective_message.reply_text("استخدم: قفل <النوع> أو فتح <النوع>")
+
+LOCK_AR_HANDLER = MessageHandler(Filters.regex(r'^(قفل|فتح)\s+(.+)$'), lock_arabic)
+
 LOCKTYPES_AR_HANDLER = CommandHandler("أنواع الأقفال", locktypes)
-LOCK_AR_HANDLER = CommandHandler("قفل", lock, pass_args=True, filters=Filters.group)
-UNLOCK_AR_HANDLER = CommandHandler("فتح", unlock, pass_args=True, filters=Filters.group)
-LOCKED_AR_HANDLER = CommandHandler("الأقفال", list_locks, filters=Filters.group)
+LOCKS_AR_HANDLER = CommandHandler("الأقفال", list_locks)
 
 dispatcher.add_handler(LOCK_HANDLER)
 dispatcher.add_handler(UNLOCK_HANDLER)
@@ -311,6 +365,5 @@ dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, del_lockables
 dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, rest_handler), REST_GROUP)
 
 dispatcher.add_handler(LOCK_AR_HANDLER)
-dispatcher.add_handler(UNLOCK_AR_HANDLER)
 dispatcher.add_handler(LOCKTYPES_AR_HANDLER)
-dispatcher.add_handler(LOCKED_AR_HANDLER)
+dispatcher.add_handler(LOCKS_AR_HANDLER)
