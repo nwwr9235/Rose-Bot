@@ -195,9 +195,9 @@ UNMUTE_HANDLER = CommandHandler("unmute", unmute, pass_args=True, filters=Filter
 TEMPMUTE_HANDLER = CommandHandler(["tmute", "tempmute"], temp_mute, pass_args=True, filters=Filters.group)
 
 # معالجات الأوامر العربية
-MUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^كتم$') & Filters.reply, mute, pass_args=True)
-UNMUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^الغاء كتم$') & Filters.reply, unmute, pass_args=True)
-TEMPMUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^كتم مؤقت (.+)$') & Filters.reply, temp_mute, pass_args=True)
+MUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^كتم$') & Filters.reply, mute, )
+UNMUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^الغاء كتم$') & Filters.reply, unmute, )
+TEMPMUTE_AR_HANDLER = MessageHandler(Filters.regex(r'^كتم مؤقت (.+)$') & Filters.reply, temp_mute, )
 
 dispatcher.add_handler(MUTE_HANDLER)
 dispatcher.add_handler(UNMUTE_HANDLER)
