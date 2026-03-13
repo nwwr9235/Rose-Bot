@@ -8,6 +8,7 @@ from tg_bot.modules.users import get_user_id
 
 
 def id_from_reply(message):
+    """استخراج معرف المستخدم من الرسالة التي تم الرد عليها."""
     prev_message = message.reply_to_message
     if not prev_message:
         return None, None
@@ -19,15 +20,17 @@ def id_from_reply(message):
 
 
 def extract_user(message: Message, args: List[str]) -> Optional[int]:
+    """استخراج معرف المستخدم فقط من الرسالة."""
     return extract_user_and_text(message, args)[0]
 
 
 def extract_user_and_text(message: Message, args: List[str]) -> (Optional[int], Optional[str]):
+    """استخراج معرف المستخدم والنص من الرسالة (بعد الأمر)."""
     prev_message = message.reply_to_message
     split_text = message.text.split(None, 1)
 
     if len(split_text) < 2:
-        return id_from_reply(message)  # only option possible
+        return id_from_reply(message)  # الخيار الوحيد الممكن
 
     text_to_parse = split_text[1]
 
@@ -39,7 +42,7 @@ def extract_user_and_text(message: Message, args: List[str]) -> (Optional[int], 
     else:
         ent = None
 
-    # if entity offset matches (command end/text start) then all good
+    # إذا كان موقع الكيان يتطابق مع نهاية الأمر
     if entities and ent and ent.offset == len(message.text) - len(text_to_parse):
         ent = entities[0]
         user_id = ent.user.id
@@ -49,10 +52,8 @@ def extract_user_and_text(message: Message, args: List[str]) -> (Optional[int], 
         user = args[0]
         user_id = get_user_id(user)
         if not user_id:
-            message.reply_text("I don't have that user in my db. You'll be able to interact with them if "
-                               "you reply to that person's message instead, or forward one of that user's messages.")
+            message.reply_text("ليس لدي هذا المستخدم في قاعدة بياناتي. يمكنك التفاعل معه إذا قمت بالرد على رسالته، أو إعادة توجيه إحدى رسائله.")
             return None, None
-
         else:
             user_id = user_id
             res = message.text.split(None, 2)
@@ -75,16 +76,16 @@ def extract_user_and_text(message: Message, args: List[str]) -> (Optional[int], 
         message.bot.get_chat(user_id)
     except BadRequest as excp:
         if excp.message in ("User_id_invalid", "Chat not found"):
-            message.reply_text("ഞാൻ ഇങ്ങനെയൊരാളെ ഇവിടെയെങ്ങും കണ്ടിട്ടേയില്ല... "
-                               "ഇയാളുടെ വാലോ തലയോ എന്തെങ്കിലും എനിക്ക് ഒന്ന് അയച്ചു താ (മെസ്സേജ് ആയാലും മതി)...  "
-                               "എന്നിട്ട് വേണം വേഗം പണി തുടങ്ങാൻ...")
+            message.reply_text("لم أجد هذا الشخص في أي مكان... "
+                               "أرسل لي شيئاً منه (حتى رسالة) ... "
+                               "وبعدها لنبدأ العمل بسرعة...")
         else:
-            LOGGER.exception("Exception %s on user %s", excp.message, user_id)
-
+            LOGGER.exception("استثناء %s على المستخدم %s", excp.message, user_id)
         return None, None
 
     return user_id, text
 
 
 def extract_text(message) -> str:
+    """استخراج النص من الرسالة (نص رئيسي أو تعليق أو إيموجي ملصق)."""
     return message.text or message.caption or (message.sticker.emoji if message.sticker else None)
