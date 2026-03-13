@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from telegram import Message, Chat, Update, Bot, User, ParseMode
 from telegram.error import BadRequest, Unauthorized
-from telegram.ext import CommandHandler, RegexHandler, run_async, Filters
+from telegram.ext import CommandHandler, RegexHandler, run_async, Filters, MessageHandler
 from telegram.utils.helpers import mention_html
 
 from tg_bot import dispatcher, LOGGER
@@ -17,34 +17,33 @@ REPORT_GROUP = 5
 @run_async
 @user_admin
 def report_setting(bot: Bot, update: Update, args: List[str]):
-    chat = update.effective_chat  # type: Optional[Chat]
-    msg = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    msg = update.effective_message
 
     if chat.type == chat.PRIVATE:
         if len(args) >= 1:
             if args[0] in ("yes", "on"):
                 sql.set_user_setting(chat.id, True)
-                msg.reply_text("Turned on reporting! You'll be notified whenever anyone reports something.")
+                msg.reply_text("تم تشغيل الإبلاغ! سيتم إعلامك عندما يبلغ شخص ما.")
 
             elif args[0] in ("no", "off"):
                 sql.set_user_setting(chat.id, False)
-                msg.reply_text("Turned off reporting! You wont get any reports.")
+                msg.reply_text("تم إيقاف الإبلاغ! لن تستقبل أي تقارير.")
         else:
-            msg.reply_text("Your current report preference is: `{}`".format(sql.user_should_report(chat.id)),
+            msg.reply_text("تفضيل الإبلاغ الحالي لديك هو: `{}`".format(sql.user_should_report(chat.id)),
                            parse_mode=ParseMode.MARKDOWN)
 
     else:
         if len(args) >= 1:
             if args[0] in ("yes", "on"):
                 sql.set_chat_setting(chat.id, True)
-                msg.reply_text("Turned on reporting! Admins who have turned on reports will be notified when /report "
-                               "or @admin are called.")
+                msg.reply_text("تم تشغيل الإبلاغ! سيتم إعلام المشرفين الذين فعّلوا الإبلاغ عند استخدام /report أو @admin.")
 
             elif args[0] in ("no", "off"):
                 sql.set_chat_setting(chat.id, False)
-                msg.reply_text("Turned off reporting! No admins will be notified on /report or @admin.")
+                msg.reply_text("تم إيقاف الإبلاغ! لن يتم إعلام أي مشرف عند استخدام /report أو @admin.")
         else:
-            msg.reply_text("This chat's current setting is: `{}`".format(sql.chat_should_report(chat.id)),
+            msg.reply_text("الإعداد الحالي لهذه الدردشة هو: `{}`".format(sql.chat_should_report(chat.id)),
                            parse_mode=ParseMode.MARKDOWN)
 
 
@@ -52,19 +51,19 @@ def report_setting(bot: Bot, update: Update, args: List[str]):
 @user_not_admin
 @loggable
 def report(bot: Bot, update: Update) -> str:
-    message = update.effective_message  # type: Optional[Message]
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
 
     if chat and message.reply_to_message and sql.chat_should_report(chat.id):
-        reported_user = message.reply_to_message.from_user  # type: Optional[User]
+        reported_user = message.reply_to_message.from_user
         chat_name = chat.title or chat.first or chat.username
         admin_list = chat.get_administrators()
 
         if chat.username and chat.type == Chat.SUPERGROUP:
             msg = "<b>{}:</b>" \
-                  "\n<b>Reported user:</b> {} (<code>{}</code>)" \
-                  "\n<b>Reported by:</b> {} (<code>{}</code>)".format(html.escape(chat.title),
+                  "\n<b>المستخدم المُبلغ عنه:</b> {} (<code>{}</code>)" \
+                  "\n<b>أبلغ بواسطة:</b> {} (<code>{}</code>)".format(html.escape(chat.title),
                                                                       mention_html(
                                                                           reported_user.id,
                                                                           reported_user.first_name),
@@ -72,19 +71,19 @@ def report(bot: Bot, update: Update) -> str:
                                                                       mention_html(user.id,
                                                                                    user.first_name),
                                                                       user.id)
-            link = "\n<b>Link:</b> " \
-                   "<a href=\"http://telegram.me/{}/{}\">click here</a>".format(chat.username, message.message_id)
+            link = "\n<b>الرابط:</b> " \
+                   "<a href=\"http://telegram.me/{}/{}\">اضغط هنا</a>".format(chat.username, message.message_id)
 
             should_forward = False
 
         else:
-            msg = "{} is calling for admins in \"{}\"!".format(mention_html(user.id, user.first_name),
+            msg = "{} يستدعي المشرفين في \"{}\"!".format(mention_html(user.id, user.first_name),
                                                                html.escape(chat_name))
             link = ""
             should_forward = True
 
         for admin in admin_list:
-            if admin.user.is_bot:  # can't message bots
+            if admin.user.is_bot:
                 continue
 
             if sql.user_should_report(admin.user.id):
@@ -94,13 +93,13 @@ def report(bot: Bot, update: Update) -> str:
                     if should_forward:
                         message.reply_to_message.forward(admin.user.id)
 
-                        if len(message.text.split()) > 1:  # If user is giving a reason, send his message too
+                        if len(message.text.split()) > 1:
                             message.forward(admin.user.id)
 
                 except Unauthorized:
                     pass
-                except BadRequest as excp:  # TODO: cleanup exceptions
-                    LOGGER.exception("Exception while reporting user")
+                except BadRequest as excp:
+                    LOGGER.exception("استثناء أثناء الإبلاغ عن مستخدم")
         return msg
 
     return ""
@@ -111,32 +110,50 @@ def __migrate__(old_chat_id, new_chat_id):
 
 
 def __chat_settings__(chat_id, user_id):
-    return "This chat is setup to send user reports to admins, via /report and @admin: `{}`".format(
+    return "هذه الدردشة مضبوطة لإرسال تقارير المستخدمين إلى المشرفين، عبر /report و @admin: `{}`".format(
         sql.chat_should_report(chat_id))
 
 
 def __user_settings__(user_id):
-    return "You receive reports from chats you're admin in: `{}`.\nToggle this with /reports in PM.".format(
+    return "أنت تستقبل تقارير من الدردشات التي أنت مشرف فيها: `{}`.\nبدّل هذا باستخدام /reports في الخاص.".format(
         sql.user_should_report(user_id))
 
 
-__mod_name__ = "Reporting"
+# ================== المساعدة ==================
+__mod_name__ = "الإبلاغ"
 
 __help__ = """
- - /report <reason>: reply to a message to report it to admins.
- - @admin: reply to a message to report it to admins.
-NOTE: neither of these will get triggered if used by admins
+- /report <السبب>: قم بالرد على رسالة للإبلاغ عنها للمشرفين.
+- @admin: قم بالرد على رسالة للإبلاغ عنها للمشرفين.
+ملاحظة: لن يتم تفعيل أي من هذه إذا استخدمها المشرفون.
 
-*Admin only:*
- - /reports <on/off>: change report setting, or view current status.
-   - If done in pm, toggles your status.
-   - If in chat, toggles that chat's status.
+*للمشرفين فقط:*
+- /reports <on/off>: تغيير إعداد الإبلاغ، أو عرض الحالة الحالية.
+   - إذا تم في الخاص، يبدل حالتك.
+   - إذا تم في الدردشة، يبدل حالة تلك الدردشة.
+
+*الأوامر العربية (بدون /):*
+تبليغ <بالرد>: الإبلاغ عن رسالة للمشرفين
+إعدادات التبليغ: عرض إعدادات الإبلاغ الحالية
+تشغيل التبليغ: تفعيل الإبلاغ (للمشرفين)
+إيقاف التبليغ: تعطيل الإبلاغ (للمشرفين)
 """
 
 REPORT_HANDLER = CommandHandler("report", report, filters=Filters.group)
 SETTING_HANDLER = CommandHandler("reports", report_setting, pass_args=True)
 ADMIN_REPORT_HANDLER = RegexHandler("(?i)@admin(s)?", report)
 
+# معالجات الأوامر العربية
+REPORT_AR_HANDLER = CommandHandler("تبليغ", report, filters=Filters.group)
+REPORT_SETTING_AR_HANDLER = CommandHandler("إعدادات التبليغ", lambda b,u: report_setting(b,u,args=[]), filters=Filters.group)
+REPORT_SETTING_ON_AR_HANDLER = CommandHandler("تشغيل التبليغ", lambda b,u: report_setting(b,u,args=["on"]), filters=Filters.group)
+REPORT_SETTING_OFF_AR_HANDLER = CommandHandler("إيقاف التبليغ", lambda b,u: report_setting(b,u,args=["off"]), filters=Filters.group)
+
 dispatcher.add_handler(REPORT_HANDLER, REPORT_GROUP)
 dispatcher.add_handler(ADMIN_REPORT_HANDLER, REPORT_GROUP)
 dispatcher.add_handler(SETTING_HANDLER)
+
+dispatcher.add_handler(REPORT_AR_HANDLER, REPORT_GROUP)
+dispatcher.add_handler(REPORT_SETTING_AR_HANDLER)
+dispatcher.add_handler(REPORT_SETTING_ON_AR_HANDLER)
+dispatcher.add_handler(REPORT_SETTING_OFF_AR_HANDLER)
