@@ -1,130 +1,119 @@
-from enum import IntEnum, unique
+from math import ceil
+from typing import List, Dict
 
-from telegram import Message
+from telegram import MAX_MESSAGE_LENGTH, InlineKeyboardButton, Bot, ParseMode
+from telegram.error import TelegramError
 
-from tg_bot.modules.helper_funcs.string_handling import button_markdown_parser
-
-
-@unique
-class Types(IntEnum):
-    TEXT = 0
-    BUTTON_TEXT = 1
-    STICKER = 2
-    DOCUMENT = 3
-    PHOTO = 4
-    AUDIO = 5
-    VOICE = 6
-    VIDEO = 7
+from tg_bot import LOAD, NO_LOAD
 
 
-def get_note_type(msg: Message):
-    data_type = None
-    content = None
-    text = ""
-    raw_text = msg.text or msg.caption
-    args = raw_text.split(None, 2)  # use python's maxsplit to separate cmd and args
-    note_name = args[1]
+class EqInlineKeyboardButton(InlineKeyboardButton):
+    def __eq__(self, other):
+        return self.text == other.text
 
-    buttons = []
-    # determine what the contents of the filter are - text, image, sticker, etc
-    if len(args) >= 3:
-        offset = len(args[2]) - len(raw_text)  # set correct offset relative to command + notename
-        text, buttons = button_markdown_parser(args[2], entities=msg.parse_entities() or msg.parse_caption_entities(),
-                                               offset=offset)
-        if buttons:
-            data_type = Types.BUTTON_TEXT
-        else:
-            data_type = Types.TEXT
+    def __lt__(self, other):
+        return self.text < other.text
 
-    elif msg.reply_to_message:
-        entities = msg.reply_to_message.parse_entities()
-        msgtext = msg.reply_to_message.text or msg.reply_to_message.caption
-        if len(args) >= 2 and msg.reply_to_message.text:  # not caption, text
-            text, buttons = button_markdown_parser(msgtext,
-                                                   entities=entities)
-            if buttons:
-                data_type = Types.BUTTON_TEXT
+    def __gt__(self, other):
+        return self.text > other.text
+
+
+def split_message(msg: str) -> List[str]:
+    """تقسيم رسالة طويلة إلى أجزاء."""
+    if len(msg) < MAX_MESSAGE_LENGTH:
+        return [msg]
+
+    else:
+        lines = msg.splitlines(True)
+        small_msg = ""
+        result = []
+        for line in lines:
+            if len(small_msg) + len(line) < MAX_MESSAGE_LENGTH:
+                small_msg += line
             else:
-                data_type = Types.TEXT
-
-        elif msg.reply_to_message.sticker:
-            content = msg.reply_to_message.sticker.file_id
-            data_type = Types.STICKER
-
-        elif msg.reply_to_message.document:
-            content = msg.reply_to_message.document.file_id
-            text, buttons = button_markdown_parser(msgtext, entities=entities)
-            data_type = Types.DOCUMENT
-
-        elif msg.reply_to_message.photo:
-            content = msg.reply_to_message.photo[-1].file_id  # last elem = best quality
-            text, buttons = button_markdown_parser(msgtext, entities=entities)
-            data_type = Types.PHOTO
-
-        elif msg.reply_to_message.audio:
-            content = msg.reply_to_message.audio.file_id
-            text, buttons = button_markdown_parser(msgtext, entities=entities)
-            data_type = Types.AUDIO
-
-        elif msg.reply_to_message.voice:
-            content = msg.reply_to_message.voice.file_id
-            text, buttons = button_markdown_parser(msgtext, entities=entities)
-            data_type = Types.VOICE
-
-        elif msg.reply_to_message.video:
-            content = msg.reply_to_message.video.file_id
-            text, buttons = button_markdown_parser(msgtext, entities=entities)
-            data_type = Types.VIDEO
-
-    return note_name, text, data_type, content, buttons
-
-
-# note: add own args?
-def get_welcome_type(msg: Message):
-    data_type = None
-    content = None
-    text = ""
-
-    args = msg.text.split(None, 1)  # use python's maxsplit to separate cmd and args
-
-    buttons = []
-    # determine what the contents of the filter are - text, image, sticker, etc
-    if len(args) >= 2:
-        offset = len(args[1]) - len(msg.text)  # set correct offset relative to command + notename
-        text, buttons = button_markdown_parser(args[1], entities=msg.parse_entities(), offset=offset)
-        if buttons:
-            data_type = Types.BUTTON_TEXT
+                result.append(small_msg)
+                small_msg = line
         else:
-            data_type = Types.TEXT
+            # إضافة النص المتبقي بعد انتهاء الحلقة
+            result.append(small_msg)
 
-    elif msg.reply_to_message and msg.reply_to_message.sticker:
-        content = msg.reply_to_message.sticker.file_id
-        text = msg.reply_to_message.caption
-        data_type = Types.STICKER
+        return result
 
-    elif msg.reply_to_message and msg.reply_to_message.document:
-        content = msg.reply_to_message.document.file_id
-        text = msg.reply_to_message.caption
-        data_type = Types.DOCUMENT
 
-    elif msg.reply_to_message and msg.reply_to_message.photo:
-        content = msg.reply_to_message.photo[-1].file_id  # last elem = best quality
-        text = msg.reply_to_message.caption
-        data_type = Types.PHOTO
+def paginate_modules(page_n: int, module_dict: Dict, prefix, chat=None) -> List:
+    """إنشاء أزرار التنقل بين صفحات الوحدات."""
+    if not chat:
+        modules = sorted(
+            [EqInlineKeyboardButton(x.__mod_name__,
+                                    callback_data="{}_module({})".format(prefix, x.__mod_name__.lower())) for x
+             in module_dict.values()])
+    else:
+        modules = sorted(
+            [EqInlineKeyboardButton(x.__mod_name__,
+                                    callback_data="{}_module({},{})".format(prefix, chat, x.__mod_name__.lower())) for x
+             in module_dict.values()])
 
-    elif msg.reply_to_message and msg.reply_to_message.audio:
-        content = msg.reply_to_message.audio.file_id
-        text = msg.reply_to_message.caption
-        data_type = Types.AUDIO
+    pairs = [modules[i * 3 : (i + 1) * 3] for i in range((len(modules) + 3 - 1) // 3)]
+    round_num = len(modules) / 3
+    calc = len(modules) - round(round_num)
+    if calc == 1:
+        pairs.append((modules[-1],))
+    elif calc == 2:
+        pairs.append((modules[-1],))
 
-    elif msg.reply_to_message and msg.reply_to_message.voice:
-        content = msg.reply_to_message.voice.file_id
-        text = msg.reply_to_message.caption
-        data_type = Types.VOICE
+    return pairs
 
-    elif msg.reply_to_message and msg.reply_to_message.video:
-        content = msg.reply_to_message.video.file_id
-        text = msg.reply_to_message.caption
-        data_type = Types.VIDEO
 
-    return text, data_type, content, buttons
+def send_to_list(bot: Bot, send_to: list, message: str, markdown=False, html=False) -> None:
+    """إرسال رسالة إلى قائمة من المستخدمين."""
+    if html and markdown:
+        raise Exception("يمكن الإرسال إما بصيغة markdown أو HTML فقط!")
+    for user_id in set(send_to):
+        try:
+            if markdown:
+                bot.send_message(user_id, message, parse_mode=ParseMode.MARKDOWN)
+            elif html:
+                bot.send_message(user_id, message, parse_mode=ParseMode.HTML)
+            else:
+                bot.send_message(user_id, message)
+        except TelegramError:
+            pass  # تجاهل المستخدمين الفاشلين
+
+
+def build_keyboard(buttons):
+    """بناء لوحة مفاتيح من الأزرار."""
+    keyb = []
+    for btn in buttons:
+        mybelru = btn.url
+        ik = None
+        cond_one = mybelru.startswith(("http", "tg://"))
+        cond_two = (
+            "t.me/" in mybelru or
+            "telegram.me/" in mybelru
+        )
+        if cond_one or cond_two:
+            ik = InlineKeyboardButton(btn.name, url=mybelru)
+        else:
+            ik = InlineKeyboardButton(btn.name, callback_data=f"rsct_{btn.id}_33801")
+        if ik:
+            if btn.same_line and keyb:
+                keyb[-1].append(ik)
+            else:
+                keyb.append([ik])
+    return keyb
+
+
+def revert_buttons(buttons):
+    """إعادة تحويل الأزرار إلى نص."""
+    res = ""
+    for btn in buttons:
+        if btn.same_line:
+            res += "\n[{}](buttonurl://{}:same)".format(btn.name, btn.url)
+        else:
+            res += "\n[{}](buttonurl://{})".format(btn.name, btn.url)
+    return res
+
+
+def is_module_loaded(name):
+    """التحقق مما إذا كانت الوحدة محملة."""
+    return (not LOAD or name in LOAD) and name not in NO_LOAD
