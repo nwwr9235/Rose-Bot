@@ -135,12 +135,12 @@ __help__ = """
 __mod_name__ = "مكافحة الإغراق"
 
 FLOOD_BAN_HANDLER = MessageHandler(Filters.all & ~Filters.status_update & Filters.group, check_flood)
-SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood filters=Filters.group)
+SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood, pass_args=True, filters=Filters.group)  # <-- تم إضافة الفاصلة
 FLOOD_HANDLER = CommandHandler("flood", flood, filters=Filters.group)
 
 # معالجات الأوامر العربية
 FLOOD_AR_HANDLER = CommandHandler("الإغراق", flood, filters=Filters.group)
-SET_FLOOD_AR_HANDLER = CommandHandler("تعيين إغراق", set_flood, filters=Filters.group)
+SET_FLOOD_AR_HANDLER = CommandHandler("تعيين إغراق", set_flood, pass_args=True, filters=Filters.group)
 DISABLE_FLOOD_AR_HANDLER = CommandHandler("تعطيل إغراق", lambda b,u: set_flood(b,u,args=["off"]), filters=Filters.group)
 
 dispatcher.add_handler(FLOOD_BAN_HANDLER, FLOOD_GROUP)
