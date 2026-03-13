@@ -42,7 +42,6 @@ PREVIEWS = Filters.entity("url")
 RESTRICTION_TYPES = {'messages': MESSAGES,
                      'media': MEDIA,
                      'other': OTHER,
-                     # 'previews': PREVIEWS, # NOTE: this has been removed cos its useless atm.
                      'all': Filters.all}
 
 PERM_GROUP = 1
@@ -92,26 +91,26 @@ def unrestr_members(bot, chat_id, members, messages=True, media=True, other=True
 
 @run_async
 def locktypes(bot: Bot, update: Update):
-    update.effective_message.reply_text("\n - ".join(["Locks: "] + list(LOCK_TYPES) + list(RESTRICTION_TYPES)))
+    update.effective_message.reply_text("\n - ".join(["أنواع القفل: "] + list(LOCK_TYPES) + list(RESTRICTION_TYPES)))
 
 
 @user_admin
 @bot_can_delete
 @loggable
 def lock(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    user = update.effective_user
+    message = update.effective_message
     if can_delete(chat, bot.id):
         if len(args) >= 1:
             if args[0] in LOCK_TYPES:
                 sql.update_lock(chat.id, args[0], locked=True)
-                message.reply_text("Locked {} messages for all non-admins!".format(args[0]))
+                message.reply_text("تم قفل {} لجميع غير المشرفين!".format(args[0]))
 
                 return "<b>{}:</b>" \
-                       "\n#LOCK" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nLocked <code>{}</code>.".format(html.escape(chat.title),
+                       "\n#قفل" \
+                       "\n<b>المشرف:</b> {}" \
+                       "\nتم قفل <code>{}</code>.".format(html.escape(chat.title),
                                                           mention_html(user.id, user.first_name), args[0])
 
             elif args[0] in RESTRICTION_TYPES:
@@ -120,18 +119,18 @@ def lock(bot: Bot, update: Update, args: List[str]) -> str:
                     members = users_sql.get_chat_members(str(chat.id))
                     restr_members(bot, chat.id, members, messages=True, media=True, other=True)
 
-                message.reply_text("Locked {} for all non-admins!".format(args[0]))
+                message.reply_text("تم قفل {} لجميع غير المشرفين!".format(args[0]))
                 return "<b>{}:</b>" \
-                       "\n#LOCK" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nLocked <code>{}</code>.".format(html.escape(chat.title),
+                       "\n#قفل" \
+                       "\n<b>المشرف:</b> {}" \
+                       "\nتم قفل <code>{}</code>.".format(html.escape(chat.title),
                                                           mention_html(user.id, user.first_name), args[0])
 
             else:
-                message.reply_text("What are you trying to lock...? Try /locktypes for the list of lockables")
+                message.reply_text("ماذا تحاول قفله...؟ جرب /locktypes لقائمة العناصر القابلة للقفل")
 
     else:
-        message.reply_text("I'm not an administrator, or haven't got delete rights.")
+        message.reply_text("أنا لست مشرفاً، أو ليس لدي صلاحيات الحذف.")
 
     return ""
 
@@ -140,51 +139,34 @@ def lock(bot: Bot, update: Update, args: List[str]) -> str:
 @user_admin
 @loggable
 def unlock(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    user = update.effective_user
+    message = update.effective_message
     if is_user_admin(chat, message.from_user.id):
         if len(args) >= 1:
             if args[0] in LOCK_TYPES:
                 sql.update_lock(chat.id, args[0], locked=False)
-                message.reply_text("Unlocked {} for everyone!".format(args[0]))
+                message.reply_text("تم فتح {} للجميع!".format(args[0]))
                 return "<b>{}:</b>" \
-                       "\n#UNLOCK" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nUnlocked <code>{}</code>.".format(html.escape(chat.title),
+                       "\n#فتح" \
+                       "\n<b>المشرف:</b> {}" \
+                       "\nتم فتح <code>{}</code>.".format(html.escape(chat.title),
                                                             mention_html(user.id, user.first_name), args[0])
 
             elif args[0] in RESTRICTION_TYPES:
                 sql.update_restriction(chat.id, args[0], locked=False)
-                """
-                members = users_sql.get_chat_members(chat.id)
-                if args[0] == "messages":
-                    unrestr_members(bot, chat.id, members, media=False, other=False, previews=False)
-
-                elif args[0] == "media":
-                    unrestr_members(bot, chat.id, members, other=False, previews=False)
-
-                elif args[0] == "other":
-                    unrestr_members(bot, chat.id, members, previews=False)
-
-                elif args[0] == "previews":
-                    unrestr_members(bot, chat.id, members)
-
-                elif args[0] == "all":
-                    unrestr_members(bot, chat.id, members, True, True, True, True)
-                """
-                message.reply_text("Unlocked {} for everyone!".format(args[0]))
+                message.reply_text("تم فتح {} للجميع!".format(args[0]))
 
                 return "<b>{}:</b>" \
-                       "\n#UNLOCK" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nUnlocked <code>{}</code>.".format(html.escape(chat.title),
+                       "\n#فتح" \
+                       "\n<b>المشرف:</b> {}" \
+                       "\nتم فتح <code>{}</code>.".format(html.escape(chat.title),
                                                             mention_html(user.id, user.first_name), args[0])
             else:
-                message.reply_text("What are you trying to unlock...? Try /locktypes for the list of lockables")
+                message.reply_text("ماذا تحاول فتحه...؟ جرب /locktypes لقائمة العناصر القابلة للقفل")
 
         else:
-            bot.sendMessage(chat.id, "What are you trying to unlock...?")
+            bot.sendMessage(chat.id, "ماذا تحاول فتحه...؟")
 
     return ""
 
@@ -192,8 +174,8 @@ def unlock(bot: Bot, update: Update, args: List[str]) -> str:
 @run_async
 @user_not_admin
 def del_lockables(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
-    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    message = update.effective_message
 
     for lockable, filter in LOCK_TYPES.items():
         if filter(message) and sql.is_locked(chat.id, lockable) and can_delete(chat, bot.id):
@@ -202,12 +184,11 @@ def del_lockables(bot: Bot, update: Update):
                 for new_mem in new_members:
                     if new_mem.is_bot:
                         if not is_bot_admin(chat, bot.id):
-                            message.reply_text("I see a bot, and I've been told to stop them joining... "
-                                               "but I'm not admin!")
+                            message.reply_text("أرى بوتاً، وقد طُلب مني منعهم من الانضمام... لكني لست مشرفاً!")
                             return
 
                         chat.kick_member(new_mem.id)
-                        message.reply_text("Only admins are allowed to add bots to this chat! Get outta here.")
+                        message.reply_text("فقط المشرفون مسموح لهم بإضافة البوتات إلى هذه الدردشة! اخرج من هنا.")
             else:
                 try:
                     message.delete()
@@ -215,7 +196,7 @@ def del_lockables(bot: Bot, update: Update):
                     if excp.message == "Message to delete not found":
                         pass
                     else:
-                        LOGGER.exception("ERROR in lockables")
+                        LOGGER.exception("خطأ في العناصر القابلة للقفل")
 
             break
 
@@ -223,8 +204,8 @@ def del_lockables(bot: Bot, update: Update):
 @run_async
 @user_not_admin
 def rest_handler(bot: Bot, update: Update):
-    msg = update.effective_message  # type: Optional[Message]
-    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message
+    chat = update.effective_chat
     for restriction, filter in RESTRICTION_TYPES.items():
         if filter(msg) and sql.is_restr_locked(chat.id, restriction) and can_delete(chat, bot.id):
             try:
@@ -233,7 +214,7 @@ def rest_handler(bot: Bot, update: Update):
                 if excp.message == "Message to delete not found":
                     pass
                 else:
-                    LOGGER.exception("ERROR in restrictions")
+                    LOGGER.exception("خطأ في القيود")
             break
 
 
@@ -241,39 +222,38 @@ def build_lock_message(chat_id):
     locks = sql.get_locks(chat_id)
     restr = sql.get_restr(chat_id)
     if not (locks or restr):
-        res = "There are no current locks in this chat."
+        res = "لا توجد أقفال حالية في هذه الدردشة."
     else:
-        res = "These are the locks in this chat:"
+        res = "هذه هي الأقفال في هذه الدردشة:"
         if locks:
-            res += "\n - sticker = `{}`" \
-                   "\n - audio = `{}`" \
-                   "\n - voice = `{}`" \
-                   "\n - document = `{}`" \
-                   "\n - video = `{}`" \
-                   "\n - contact = `{}`" \
-                   "\n - photo = `{}`" \
-                   "\n - gif = `{}`" \
-                   "\n - url = `{}`" \
-                   "\n - bots = `{}`" \
-                   "\n - forward = `{}`" \
-                   "\n - game = `{}`" \
-                   "\n - location = `{}`".format(locks.sticker, locks.audio, locks.voice, locks.document,
+            res += "\n - ملصق = `{}`" \
+                   "\n - صوت = `{}`" \
+                   "\n - مكالمة صوتية = `{}`" \
+                   "\n - مستند = `{}`" \
+                   "\n - فيديو = `{}`" \
+                   "\n - جهة اتصال = `{}`" \
+                   "\n - صورة = `{}`" \
+                   "\n - متحركة = `{}`" \
+                   "\n - رابط = `{}`" \
+                   "\n - بوتات = `{}`" \
+                   "\n - إعادة توجيه = `{}`" \
+                   "\n - لعبة = `{}`" \
+                   "\n - موقع = `{}`".format(locks.sticker, locks.audio, locks.voice, locks.document,
                                                  locks.video, locks.contact, locks.photo, locks.gif, locks.url,
                                                  locks.bots, locks.forward, locks.game, locks.location)
         if restr:
-            res += "\n - messages = `{}`" \
-                   "\n - media = `{}`" \
-                   "\n - other = `{}`" \
-                   "\n - previews = `{}`" \
-                   "\n - all = `{}`".format(restr.messages, restr.media, restr.other, restr.preview,
-                                            all([restr.messages, restr.media, restr.other, restr.preview]))
+            res += "\n - رسائل = `{}`" \
+                   "\n - وسائط = `{}`" \
+                   "\n - أخرى = `{}`" \
+                   "\n - الكل = `{}`".format(restr.messages, restr.media, restr.other,
+                                            all([restr.messages, restr.media, restr.other]))
     return res
 
 
 @run_async
 @user_admin
 def list_locks(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
+    chat = update.effective_chat
 
     res = build_lock_message(chat.id)
 
@@ -288,27 +268,39 @@ def __chat_settings__(chat_id, user_id):
     return build_lock_message(chat_id)
 
 
+# ================== المساعدة ==================
 __help__ = """
- - /locktypes: a list of possible locktypes
+- /locktypes: قائمة بأنواع الأقفال الممكنة
 
-*Admin only:*
- - /lock <type>: lock items of a certain type (not available in private)
- - /unlock <type>: unlock items of a certain type (not available in private)
- - /locks: the current list of locks in this chat.
+*للمشرفين فقط:*
+- /lock <نوع>: قفل عناصر من نوع معين (غير متاح في الخاص)
+- /unlock <نوع>: فتح عناصر من نوع معين (غير متاح في الخاص)
+- /locks: القائمة الحالية للأقفال في هذه الدردشة.
 
-Locks can be used to restrict a group's users.
-eg:
-Locking urls will auto-delete all messages with urls, locking stickers will delete all \
-stickers, etc.
-Locking bots will stop non-admins from adding bots to the chat.
+يمكن استخدام الأقفال لتقييد مستخدمي المجموعة.
+مثال:
+قفل الروابط سيحذف تلقائياً جميع الرسائل التي تحتوي على روابط، قفل الملصقات سيحذف جميع الملصقات، إلخ.
+قفل البوتات سيمنع غير المشرفين من إضافة البوتات إلى الدردشة.
+
+*الأوامر العربية (بدون /):*
+أنواع الأقفال: عرض أنواع الأقفال الممكنة
+قفل <النوع>: قفل نوع معين
+فتح <النوع>: فتح نوع معين
+الأقفال: عرض الأقفال الحالية في الدردشة
 """
 
-__mod_name__ = "Locks"
+__mod_name__ = "الأقفال"
 
 LOCKTYPES_HANDLER = DisableAbleCommandHandler("locktypes", locktypes)
 LOCK_HANDLER = CommandHandler("lock", lock, pass_args=True, filters=Filters.group)
 UNLOCK_HANDLER = CommandHandler("unlock", unlock, pass_args=True, filters=Filters.group)
 LOCKED_HANDLER = CommandHandler("locks", list_locks, filters=Filters.group)
+
+# معالجات الأوامر العربية
+LOCKTYPES_AR_HANDLER = CommandHandler("أنواع الأقفال", locktypes)
+LOCK_AR_HANDLER = CommandHandler("قفل", lock, pass_args=True, filters=Filters.group)
+UNLOCK_AR_HANDLER = CommandHandler("فتح", unlock, pass_args=True, filters=Filters.group)
+LOCKED_AR_HANDLER = CommandHandler("الأقفال", list_locks, filters=Filters.group)
 
 dispatcher.add_handler(LOCK_HANDLER)
 dispatcher.add_handler(UNLOCK_HANDLER)
@@ -317,3 +309,8 @@ dispatcher.add_handler(LOCKED_HANDLER)
 
 dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, del_lockables), PERM_GROUP)
 dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, rest_handler), REST_GROUP)
+
+dispatcher.add_handler(LOCK_AR_HANDLER)
+dispatcher.add_handler(UNLOCK_AR_HANDLER)
+dispatcher.add_handler(LOCKTYPES_AR_HANDLER)
+dispatcher.add_handler(LOCKED_AR_HANDLER)
