@@ -15,13 +15,13 @@ from tg_bot.modules.helper_funcs.misc import split_message
 
 BLACKLIST_GROUP = 11
 
-BASE_BLACKLIST_STRING = "Current <b>blacklisted</b> words:\n"
+BASE_BLACKLIST_STRING = "الكلمات <b>المحظورة</b> الحالية:\n"
 
 
 @run_async
 def blacklist(bot: Bot, update: Update, args: List[str]):
-    msg = update.effective_message  # type: Optional[Message]
-    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message
+    chat = update.effective_chat
 
     all_blacklisted = sql.get_chat_blacklist(chat.id)
 
@@ -37,7 +37,7 @@ def blacklist(bot: Bot, update: Update, args: List[str]):
     split_text = split_message(filter_list)
     for text in split_text:
         if text == BASE_BLACKLIST_STRING:
-            msg.reply_text("There are no blacklisted messages here!")
+            msg.reply_text("لا توجد كلمات محظورة هنا!")
             return
         msg.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -45,8 +45,8 @@ def blacklist(bot: Bot, update: Update, args: List[str]):
 @run_async
 @user_admin
 def add_blacklist(bot: Bot, update: Update):
-    msg = update.effective_message  # type: Optional[Message]
-    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message
+    chat = update.effective_chat
     words = msg.text.split(None, 1)
     if len(words) > 1:
         text = words[1]
@@ -55,22 +55,22 @@ def add_blacklist(bot: Bot, update: Update):
             sql.add_to_blacklist(chat.id, trigger.lower())
 
         if len(to_blacklist) == 1:
-            msg.reply_text("Added <code>{}</code> to the blacklist!".format(html.escape(to_blacklist[0])),
+            msg.reply_text("تمت إضافة <code>{}</code> إلى قائمة الحظر!".format(html.escape(to_blacklist[0])),
                            parse_mode=ParseMode.HTML)
 
         else:
             msg.reply_text(
-                "Added <code>{}</code> triggers to the blacklist.".format(len(to_blacklist)), parse_mode=ParseMode.HTML)
+                "تمت إضافة <code>{}</code> كلمة إلى قائمة الحظر.".format(len(to_blacklist)), parse_mode=ParseMode.HTML)
 
     else:
-        msg.reply_text("Tell me which words you would like to remove from the blacklist.")
+        msg.reply_text("أخبرني بالكلمات التي تريد إضافتها إلى قائمة الحظر.")
 
 
 @run_async
 @user_admin
 def unblacklist(bot: Bot, update: Update):
-    msg = update.effective_message  # type: Optional[Message]
-    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message
+    chat = update.effective_chat
     words = msg.text.split(None, 1)
     if len(words) > 1:
         text = words[1]
@@ -83,35 +83,32 @@ def unblacklist(bot: Bot, update: Update):
 
         if len(to_unblacklist) == 1:
             if successful:
-                msg.reply_text("Removed <code>{}</code> from the blacklist!".format(html.escape(to_unblacklist[0])),
+                msg.reply_text("تمت إزالة <code>{}</code> من قائمة الحظر!".format(html.escape(to_unblacklist[0])),
                                parse_mode=ParseMode.HTML)
             else:
-                msg.reply_text("This isn't a blacklisted trigger...!")
+                msg.reply_text("هذه الكلمة ليست في قائمة الحظر...!")
 
         elif successful == len(to_unblacklist):
             msg.reply_text(
-                "Removed <code>{}</code> triggers from the blacklist.".format(
-                    successful), parse_mode=ParseMode.HTML)
+                "تمت إزالة <code>{}</code> كلمة من قائمة الحظر.".format(successful), parse_mode=ParseMode.HTML)
 
         elif not successful:
             msg.reply_text(
-                "None of these triggers exist, so they weren't removed.".format(
-                    successful, len(to_unblacklist) - successful), parse_mode=ParseMode.HTML)
+                "لم يتم إزالة أي من هذه الكلمات لأنها غير موجودة في القائمة.", parse_mode=ParseMode.HTML)
 
         else:
             msg.reply_text(
-                "Removed <code>{}</code> triggers from the blacklist. {} did not exist, "
-                "so were not removed.".format(successful, len(to_unblacklist) - successful),
+                "تمت إزالة <code>{}</code> كلمة من قائمة الحظر. {} كلمة غير موجودة ولم تتم إزالتها.".format(successful, len(to_unblacklist) - successful),
                 parse_mode=ParseMode.HTML)
     else:
-        msg.reply_text("Tell me which words you would like to remove from the blacklist.")
+        msg.reply_text("أخبرني بالكلمات التي تريد إزالتها من قائمة الحظر.")
 
 
 @run_async
 @user_not_admin
 def del_blacklist(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
-    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    message = update.effective_message
     to_match = extract_text(message)
     if not to_match:
         return
@@ -126,7 +123,7 @@ def del_blacklist(bot: Bot, update: Update):
                 if excp.message == "Message to delete not found":
                     pass
                 else:
-                    LOGGER.exception("Error while deleting blacklist message.")
+                    LOGGER.exception("خطأ أثناء حذف رسالة القائمة السوداء.")
             break
 
 
@@ -136,30 +133,33 @@ def __migrate__(old_chat_id, new_chat_id):
 
 def __chat_settings__(chat_id, user_id):
     blacklisted = sql.num_blacklist_chat_filters(chat_id)
-    return "There are {} blacklisted words.".format(blacklisted)
+    return "هناك {} كلمة محظورة.".format(blacklisted)
 
 
 def __stats__():
-    return "{} blacklist triggers, across {} chats.".format(sql.num_blacklist_filters(),
+    return "{} كلمة محظورة، عبر {} دردشة.".format(sql.num_blacklist_filters(),
                                                             sql.num_blacklist_filter_chats())
 
 
-__mod_name__ = "Word Blacklists"
+# ================== المساعدة ==================
+__mod_name__ = "قائمة الحظر"
 
 __help__ = """
-Blacklists are used to stop certain triggers from being said in a group. Any time the trigger is mentioned, \
-the message will immediately be deleted. A good combo is sometimes to pair this up with warn filters!
+تستخدم قوائم الحظر لمنع ذكر كلمات معينة في المجموعة. كلما تم ذكر الكلمة، سيتم حذف الرسالة فوراً. من الجيد أحياناً دمج هذا مع عوامل التصفية التحذيرية!
 
-*NOTE:* blacklists do not affect group admins.
+*ملاحظة:* قوائم الحظر لا تؤثر على مشرفي المجموعة.
 
- - /blacklist: View the current blacklisted words.
+- /blacklist: عرض الكلمات المحظورة الحالية.
 
-*Admin only:*
- - /addblacklist <triggers>: Add a trigger to the blacklist. Each line is considered one trigger, so using different \
-lines will allow you to add multiple triggers.
- - /unblacklist <triggers>: Remove triggers from the blacklist. Same newline logic applies here, so you can remove \
-multiple triggers at once.
- - /rmblacklist <triggers>: Same as above.
+*للمشرفين فقط:*
+- /addblacklist <كلمات>: إضافة كلمات إلى قائمة الحظر. كل سطر يعتبر كلمة واحدة، لذا يمكنك استخدام أسطر مختلفة لإضافة عدة كلمات.
+- /unblacklist <كلمات>: إزالة كلمات من قائمة الحظر. نفس منطق الأسطر الجديدة ينطبق هنا، لذا يمكنك إزالة عدة كلمات دفعة واحدة.
+- /rmblacklist <كلمات>: نفس ما سبق.
+
+*الأوامر العربية (بدون /):*
+قائمة الحظر: عرض الكلمات المحظورة
+إضافة حظر <كلمات>: إضافة كلمات إلى القائمة
+إزالة حظر <كلمات>: إزالة كلمات من القائمة
 """
 
 BLACKLIST_HANDLER = DisableAbleCommandHandler("blacklist", blacklist, filters=Filters.group, pass_args=True,
@@ -169,7 +169,16 @@ UNBLACKLIST_HANDLER = CommandHandler(["unblacklist", "rmblacklist"], unblacklist
 BLACKLIST_DEL_HANDLER = MessageHandler(
     (Filters.text | Filters.command | Filters.sticker | Filters.photo) & Filters.group, del_blacklist)
 
+# معالجات الأوامر العربية
+BLACKLIST_AR_HANDLER = CommandHandler("قائمة الحظر", blacklist, filters=Filters.group, pass_args=True)
+ADD_BLACKLIST_AR_HANDLER = CommandHandler("إضافة حظر", add_blacklist, filters=Filters.group)
+UNBLACKLIST_AR_HANDLER = CommandHandler(["إزالة حظر", "حذف حظر"], unblacklist, filters=Filters.group)
+
 dispatcher.add_handler(BLACKLIST_HANDLER)
 dispatcher.add_handler(ADD_BLACKLIST_HANDLER)
 dispatcher.add_handler(UNBLACKLIST_HANDLER)
 dispatcher.add_handler(BLACKLIST_DEL_HANDLER, group=BLACKLIST_GROUP)
+
+dispatcher.add_handler(BLACKLIST_AR_HANDLER)
+dispatcher.add_handler(ADD_BLACKLIST_AR_HANDLER)
+dispatcher.add_handler(UNBLACKLIST_AR_HANDLER)
