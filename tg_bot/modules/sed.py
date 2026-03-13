@@ -63,17 +63,14 @@ def sed(bot: Bot, update: Update):
         repl, repl_with, flags = sed_result
 
         if not repl:
-            update.effective_message.reply_to_message.reply_text("You're trying to replace... "
-                                                                 "nothing with something?")
+            update.effective_message.reply_to_message.reply_text("أنت تحاول استبدال... لا شيء بشيء؟")
             return
 
         try:
             check = re.match(repl, to_fix, flags=re.IGNORECASE)
 
             if check and check.group(0).lower() == to_fix.lower():
-                update.effective_message.reply_to_message.reply_text("Hey everyone, {} is trying to make "
-                                                                     "me say stuff I don't wanna "
-                                                                     "say!".format(update.effective_user.first_name))
+                update.effective_message.reply_to_message.reply_text("يا جماعة، {} يحاول أن يجعلني أقول ما لا أريد قوله!".format(update.effective_user.first_name))
                 return
 
             if 'i' in flags and 'g' in flags:
@@ -86,32 +83,31 @@ def sed(bot: Bot, update: Update):
                 text = re.sub(repl, repl_with, to_fix, count=1).strip()
         except sre_constants.error:
             LOGGER.warning(update.effective_message.text)
-            LOGGER.exception("SRE constant error")
-            update.effective_message.reply_text("Do you even sed? Apparently not.")
+            LOGGER.exception("خطأ في ثابت SRE")
+            update.effective_message.reply_text("هل تعرف حتى كيف تستخدم sed؟ على ما يبدو لا.")
             return
 
-        # empty string errors -_-
         if len(text) >= telegram.MAX_MESSAGE_LENGTH:
-            update.effective_message.reply_text("The result of the sed command was too long for \
-                                                 telegram!")
+            update.effective_message.reply_text("نتيجة أمر sed كانت طويلة جداً لتليجرام!")
         elif text:
             update.effective_message.reply_to_message.reply_text(text)
 
 
+# ================== المساعدة ==================
 __help__ = """
- - s/<text1>/<text2>(/<flag>): Reply to a message with this to perform a sed operation on that message, replacing all \
-occurrences of 'text1' with 'text2'. Flags are optional, and currently include 'i' for ignore case, 'g' for global, \
-or nothing. Delimiters include `/`, `_`, `|`, and `:`. Text grouping is supported. The resulting message cannot be \
-larger than {}.
+- s/<نص1>/<نص2>(/<علامة>): قم بالرد على رسالة بهذا لإجراء عملية sed على تلك الرسالة، واستبدال جميع تكرارات 'نص1' بـ 'نص2'. العلامات اختيارية، وتشمل حالياً 'i' لتجاهل حالة الأحرف، 'g' للشامل، أو بدون علامة. الفواصل تشمل `/`, `_`, `|`, `:`. تجميع النص مدعوم. الرسالة الناتجة لا يمكن أن تكون أكبر من {}.
 
-*Reminder:* Sed uses some special characters to make matching easier, such as these: `+*.?\\`
-If you want to use these characters, make sure you escape them!
-eg: \\?.
+*تذكير:* يستخدم Sed بعض الأحرف الخاصة لتسهيل المطابقة، مثل: `+*.?\\`
+إذا كنت تريد استخدام هذه الأحرف، تأكد من هروبها!
+مثال: \\?.
 """.format(telegram.MAX_MESSAGE_LENGTH)
 
-__mod_name__ = "Sed/Regex"
-
+__mod_name__ = "Sed/تعبير منتظم"
 
 SED_HANDLER = DisableAbleRegexHandler(r's([{}]).*?\1.*'.format("".join(DELIMITERS)), sed, friendly="sed")
 
+# معالج الأمر العربي (يمكن إضافته إذا أردت)
+# SED_AR_HANDLER = MessageHandler(Filters.regex(r'^s([{}]).*?\1.*'.format("".join(DELIMITERS))), sed)
+
 dispatcher.add_handler(SED_HANDLER)
+# dispatcher.add_handler(SED_AR_HANDLER)
