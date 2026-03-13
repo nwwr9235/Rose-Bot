@@ -5,6 +5,7 @@ from telegram import Message, Update, Bot, User
 from telegram import ParseMode, MAX_MESSAGE_LENGTH
 from telegram.ext.dispatcher import run_async
 from telegram.utils.helpers import escape_markdown
+from telegram.ext import CommandHandler
 
 import tg_bot.modules.sql.userinfo_sql as sql
 from tg_bot import dispatcher, SUDO_USERS
