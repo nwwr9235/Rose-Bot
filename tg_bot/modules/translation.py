@@ -3,7 +3,7 @@ from pprint import pprint
 
 import requests
 from telegram import Update, Bot
-from telegram.ext import CommandHandler
+from telegram.ext import CommandHandler, MessageHandler, Filters
 
 from tg_bot import dispatcher
 
@@ -24,9 +24,6 @@ def translate(bot: Bot, update: Update):
         )
 
         res = requests.get(URL, params=params)
-        # print(res)
-        # print(res.text)
-        pprint(json.loads(res.text))
         changes = json.loads(res.text).get('LightGingerTheTextResult')
         curr_string = ""
 
@@ -37,7 +34,7 @@ def translate(bot: Bot, update: Update):
             end = change.get('To') + 1
             suggestions = change.get('Suggestions')
             if suggestions:
-                sugg_str = suggestions[0].get('Text')  # should look at this list more
+                sugg_str = suggestions[0].get('Text')
                 curr_string += msg.text[prev_end:start] + sugg_str
 
                 prev_end = end
@@ -47,13 +44,20 @@ def translate(bot: Bot, update: Update):
         update.effective_message.reply_text(curr_string)
 
 
+# ================== المساعدة ==================
 __help__ = """
- - /t: while replying to a message, will reply with a grammar corrected version
+- /t: بالرد على رسالة، سيرد بنسخة مصححة نحوياً.
+
+*الأمر العربي (بدون /):*
+تصحيح <بالرد>: تصحيح الأخطاء النحوية للرسالة التي تم الرد عليها.
 """
 
-__mod_name__ = "Translator"
-
+__mod_name__ = "مصحح لغوي"
 
 TRANSLATE_HANDLER = CommandHandler('t', translate)
 
+# معالج الأمر العربي
+TRANSLATE_AR_HANDLER = CommandHandler('تصحيح', translate)
+
 dispatcher.add_handler(TRANSLATE_HANDLER)
+dispatcher.add_handler(TRANSLATE_AR_HANDLER)
