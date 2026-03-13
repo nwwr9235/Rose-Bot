@@ -296,74 +296,84 @@ LOCK_HANDLER = CommandHandler("lock", lock, pass_args=True, filters=Filters.grou
 UNLOCK_HANDLER = CommandHandler("unlock", unlock, pass_args=True, filters=Filters.group)
 LOCKED_HANDLER = CommandHandler("locks", list_locks, filters=Filters.group)
 
-# معالجات الأوامر العربية (بدون /)
-def lock_arabic(bot: Bot, update: Update, args: List[str]):
-    # args هنا سيتم تمريرها من خلال معالج الرسائل (لكننا سنستخرج من النص)
-    text = update.effective_message.text
-    # نتوقع صيغة مثل "قفل الروابط" أو "فتح الصور"
-    parts = text.split()
-    if len(parts) == 2 and parts[0] == "قفل":
-        lock_type = parts[1]
-        # نحتاج لتحويل الأسماء العربية إلى الإنجليزية
-        type_map = {
-            "الروابط": "url",
-            "الملصقات": "sticker",
-            "الصور": "photo",
-            "الفيديو": "video",
-            "الصوت": "audio",
-            "البوتات": "bots",
-            "الرسائل": "messages",
-            "الوسائط": "media",
-            "الكل": "all",
-            "إعادة التوجيه": "forward",
-            "الموقع": "location",
-            "الملفات": "document",
-            "المتحركة": "gif",
-            "جهات الاتصال": "contact",
-            "الألعاب": "game",
-        }
-        eng_type = type_map.get(lock_type, lock_type)
-        # استدعاء الدالة الأصلية مع args محاكاة
-        update.effective_message.text = f"/lock {eng_type}"
-        return lock(bot, update, [eng_type])
-    elif len(parts) == 2 and parts[0] == "فتح":
-        lock_type = parts[1]
-        type_map = {
-            "الروابط": "url",
-            "الملصقات": "sticker",
-            "الصور": "photo",
-            "الفيديو": "video",
-            "الصوت": "audio",
-            "البوتات": "bots",
-            "الرسائل": "messages",
-            "الوسائط": "media",
-            "الكل": "all",
-            "إعادة التوجيه": "forward",
-            "الموقع": "location",
-            "الملفات": "document",
-            "المتحركة": "gif",
-            "جهات الاتصال": "contact",
-            "الألعاب": "game",
-        }
-        eng_type = type_map.get(lock_type, lock_type)
-        update.effective_message.text = f"/unlock {eng_type}"
-        return unlock(bot, update, [eng_type])
-    else:
-        update.effective_message.reply_text("استخدم: قفل <النوع> أو فتح <النوع>")
+# ================== الأوامر العربية ==================
 
-LOCK_AR_HANDLER = MessageHandler(Filters.regex(r'^(قفل|فتح)\s+(.+)$'), lock_arabic)
+# قاموس تحويل الأسماء العربية إلى الإنجليزية
+TYPE_TRANSLATION = {
+    "الروابط": "url",
+    "الملصقات": "sticker",
+    "الصور": "photo",
+    "الفيديو": "video",
+    "الصوت": "audio",
+    "البوتات": "bots",
+    "الرسائل": "messages",
+    "الوسائط": "media",
+    "الكل": "all",
+    "إعادة التوجيه": "forward",
+    "الموقع": "location",
+    "الملفات": "document",
+    "المتحركة": "gif",
+    "جهات الاتصال": "contact",
+    "الألعاب": "game",
+}
 
-LOCKTYPES_AR_HANDLER = CommandHandler("أنواع الأقفال", locktypes)
-LOCKS_AR_HANDLER = CommandHandler("الأقفال", list_locks)
+@run_async
+def arabic_lock_handler(bot: Bot, update: Update):
+    """معالج بسيط للأوامر العربية مثل 'قفل الروابط' و 'فتح الصور'."""
+    message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
+    text = message.text.strip()
 
-dispatcher.add_handler(LOCK_HANDLER)
-dispatcher.add_handler(UNLOCK_HANDLER)
-dispatcher.add_handler(LOCKTYPES_HANDLER)
-dispatcher.add_handler(LOCKED_HANDLER)
+    # تجاهل إذا كانت الرسالة من مستخدم ليس مشرفاً
+    if not is_user_admin(chat, user.id):
+        return
 
+    # معالجة أمر "قفل ..."
+    if text.startswith("قفل "):
+        lock_type_ar = text[4:].strip()  # إزالة "قفل " من البداية
+        lock_type_en = TYPE_TRANSLATION.get(lock_type_ar, lock_type_ar)
+
+        LOGGER.info(f"محاولة قفل {lock_type_ar} -> {lock_type_en} بواسطة {user.first_name}")
+
+        # محاكاة args للدالة lock
+        fake_args = [lock_type_en]
+        try:
+            result = lock(bot, update, fake_args)
+            if result:
+                LOGGER.info(f"نجح قفل {lock_type_en}")
+        except Exception as e:
+            LOGGER.exception(f"فشل قفل {lock_type_en}: {e}")
+            message.reply_text(f"حدث خطأ أثناء محاولة قفل {lock_type_ar}.")
+
+    # معالجة أمر "فتح ..."
+    elif text.startswith("فتح "):
+        lock_type_ar = text[4:].strip()
+        lock_type_en = TYPE_TRANSLATION.get(lock_type_ar, lock_type_ar)
+
+        LOGGER.info(f"محاولة فتح {lock_type_ar} -> {lock_type_en} بواسطة {user.first_name}")
+
+        fake_args = [lock_type_en]
+        try:
+            result = unlock(bot, update, fake_args)
+            if result:
+                LOGGER.info(f"نجح فتح {lock_type_en}")
+        except Exception as e:
+            LOGGER.exception(f"فشل فتح {lock_type_en}: {e}")
+            message.reply_text(f"حدث خطأ أثناء محاولة فتح {lock_type_ar}.")
+
+    # معالجة الأمر "أنواع الأقفال"
+    elif text == "أنواع الأقفال":
+        locktypes(bot, update)
+
+    # معالجة الأمر "الأقفال"
+    elif text == "الأقفال":
+        list_locks(bot, update)
+
+
+# إضافة المعالج العربي (بأولوية أقل من المعالج الأصلي لتفادي التعارض)
+dispatcher.add_handler(MessageHandler(Filters.text & Filters.group, arabic_lock_handler))
+
+# المعالجات التلقائية للحذف
 dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, del_lockables), PERM_GROUP)
 dispatcher.add_handler(MessageHandler(Filters.all & Filters.group, rest_handler), REST_GROUP)
-
-dispatcher.add_handler(LOCK_AR_HANDLER)
-dispatcher.add_handler(LOCKTYPES_AR_HANDLER)
-dispatcher.add_handler(LOCKS_AR_HANDLER)
