@@ -428,16 +428,16 @@ WARN_FILTER_HANDLER = MessageHandler(CustomFilters.has_text & Filters.group, rep
 WARN_LIMIT_HANDLER = CommandHandler("warnlimit", set_warn_limit, pass_args=True, filters=Filters.group)
 WARN_STRENGTH_HANDLER = CommandHandler("strongwarn", set_warn_strength, pass_args=True, filters=Filters.group)
 
-# معالجات الأوامر العربية
-WARN_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذير$') & Filters.reply, warn_user, pass_args=True)
+# معالجات الأوامر العربية (تم إزالة pass_args=True)
+WARN_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذير$') & Filters.reply, warn_user)
 MYWARNS_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذيراتي$'), lambda b,u: warns(b,u,args=[]))
 WARNS_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذيرات$') & Filters.reply, lambda b,u: warns(b,u,args=[str(u.message.reply_to_message.from_user.id)]))
 RESET_WARN_AR_HANDLER = MessageHandler(Filters.regex(r'^إعادة تحذيرات$') & Filters.reply, lambda b,u: reset_warns(b,u,args=[str(u.message.reply_to_message.from_user.id)]))
 ADD_WARN_FILTER_AR_HANDLER = MessageHandler(Filters.regex(r'^إضافة فلتر تحذير (.+?) (.+)$'), add_warn_filter)
 RM_WARN_FILTER_AR_HANDLER = MessageHandler(Filters.regex(r'^إزالة فلتر تحذير (.+)$'), remove_warn_filter)
 LIST_WARN_FILTERS_AR_HANDLER = MessageHandler(Filters.regex(r'^فلاتر تحذير$'), list_warn_filters)
-WARN_LIMIT_AR_HANDLER = MessageHandler(Filters.regex(r'^حد تحذير (\d+)$'), set_warn_limit, pass_args=True)
-WARN_STRENGTH_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذير قوي (on|off)$'), set_warn_strength, pass_args=True)
+WARN_LIMIT_AR_HANDLER = MessageHandler(Filters.regex(r'^حد تحذير (\d+)$'), set_warn_limit)
+WARN_STRENGTH_AR_HANDLER = MessageHandler(Filters.regex(r'^تحذير قوي (on|off)$'), set_warn_strength)
 
 dispatcher.add_handler(WARN_HANDLER)
 dispatcher.add_handler(CALLBACK_QUERY_HANDLER)
