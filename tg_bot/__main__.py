@@ -11,16 +11,16 @@ from telegram.utils.helpers import escape_markdown
 
 from tg_bot import dispatcher, updater, TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, \
     ALLOW_EXCL
-# مطلوب لتحميل الوحدات بشكل ديناميكي
-# ملاحظة: ترتيب الوحدات غير مضمون، حدده في ملف الإعدادات!
+# needed to dynamically load modules
+# NOTE: Module order is not guaranteed, specify that in the config file!
 from tg_bot.modules import ALL_MODULES
 from tg_bot.modules.helper_funcs.chat_status import is_user_admin
 from tg_bot.modules.helper_funcs.misc import paginate_modules
 
 PM_START_TEXT = """
-مرحباً {}، اسمي {}! أنا بوت إدارة رائع تم تطويره بواسطة [هذا الشخص](tg://user?id={}).
+مرحباً {}، اسمي {}! أنا بوت إدارة مجموعات متكامل مع بعض الإضافات الممتعة!
 
-تم بنائي باستخدام Python3 ومكتبة python-telegram-bot. أنا مفتوح المصدر بالكامل. يمكنك رؤية الكود الخاص بي [هنا](https://youtu.be/wKL90i3cjPw).
+تم بنائي باستخدام Python3 ومكتبة python-telegram-bot. أنا مفتوح المصدر بالكامل.
 
 لمشاهدة فيديو عن كيفية إنشاء بوت إدارة مثلي، شاهد الفيديو أدناه.
 
@@ -34,6 +34,7 @@ PM_START_TEXT = """
 HELP_STRINGS = """
 مرحباً! اسمي *{}*.
 أنا بوت إدارة مجموعات متكامل مع بعض الإضافات الممتعة! إليك فكرة عن بعض الأشياء التي يمكنني مساعدتك بها.
+
 *الأوامر الرئيسية المتاحة:*
 - /start: تشغيل البوت
 - /help: سأرسل لك هذه الرسالة في الخاص.
@@ -76,7 +77,7 @@ for module_name in ALL_MODULES:
     if hasattr(imported_module, "__help__") and imported_module.__help__:
         HELPABLE[imported_module.__mod_name__.lower()] = imported_module
 
-    # الدردشات التي سيتم ترحيلها في أحداث ترحيل الدردشة
+    # Chats to migrate on chat_migrated events
     if hasattr(imported_module, "__migrate__"):
         MIGRATEABLE.append(imported_module)
 
@@ -102,7 +103,7 @@ for module_name in ALL_MODULES:
         USER_SETTINGS[imported_module.__mod_name__.lower()] = imported_module
 
 
-# لا تستخدم async
+# do not async
 def send_help(chat_id, text, keyboard=None):
     if not keyboard:
         keyboard = InlineKeyboardMarkup(paginate_modules(0, HELPABLE, "help"))
@@ -181,8 +182,15 @@ def help_button(bot: Bot, update: Update):
     try:
         if mod_match:
             module = mod_match.group(1)
-            text = "إليك المساعدة لوحدة *{}*:\n".format(HELPABLE[module].__mod_name__) \
-                   + HELPABLE[module].__help__
+            # تأكد من وجود المفتاح في القاموس
+            if module not in HELPABLE:
+                # حاول البحث بدون s في النهاية (لحالة admin_miscs)
+                if module.endswith('s') and module[:-1] in HELPABLE:
+                    module = module[:-1]
+                else:
+                    LOGGER.error(f"KeyError: module '{module}' not found in HELPABLE")
+                    return
+            text = "إليك المساعدة لوحدة *{}*:\n".format(HELPABLE[module].__mod_name__) + HELPABLE[module].__help__
             query.message.reply_text(text=text,
                                      parse_mode=ParseMode.MARKDOWN,
                                      reply_markup=InlineKeyboardMarkup(
