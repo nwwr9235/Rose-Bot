@@ -299,10 +299,10 @@ PROMOTE_HANDLER = CommandHandler("promote", promote, pass_args=True, filters=Fil
 DEMOTE_HANDLER = CommandHandler("demote", demote, pass_args=True, filters=Filters.group)
 ADMINLIST_HANDLER = DisableAbleCommandHandler(["adminlist", "staff"], adminlist, filters=Filters.group)
 
-# معالجات الأوامر العربية
-PROMOTE_AR_HANDLER = MessageHandler(Filters.regex(r'^رفع مشرف$') & Filters.reply, promote, pass_args=True)
-DEMOTE_AR_HANDLER = MessageHandler(Filters.regex(r'^تنزيل مشرف$') & Filters.reply, demote, pass_args=True)
-PIN_AR_HANDLER = MessageHandler(Filters.regex(r'^تثبيت$') & Filters.reply, pin, pass_args=True)
+# معالجات الأوامر العربية (بدون pass_args=True)
+PROMOTE_AR_HANDLER = MessageHandler(Filters.regex(r'^رفع مشرف$') & Filters.reply, promote)
+DEMOTE_AR_HANDLER = MessageHandler(Filters.regex(r'^تنزيل مشرف$') & Filters.reply, demote)
+PIN_AR_HANDLER = MessageHandler(Filters.regex(r'^تثبيت$') & Filters.reply, pin)
 UNPIN_AR_HANDLER = MessageHandler(Filters.regex(r'^الغاء تثبيت$'), unpin)
 LINK_AR_HANDLER = MessageHandler(Filters.regex(r'^رابط$'), link_public)
 ADMINLIST_AR_HANDLER = MessageHandler(Filters.regex(r'^مشرفين$'), adminlist)
