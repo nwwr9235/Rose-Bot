@@ -1,3 +1,4 @@
+# tg_bot/modules/welcome.py
 import html
 from typing import Optional, List
 
@@ -30,44 +31,61 @@ ENUM_FUNC_MAP = {
 }
 
 
-# لا تستخدم async
 def send(update, message, keyboard, backup_message):
     msg = None
     try:
-        msg = update.effective_message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard, api_kwargs={"allow_sending_without_reply": True})
+        msg = update.effective_message.reply_text(
+            message,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard,
+            api_kwargs={"allow_sending_without_reply": True}
+        )
     except IndexError:
-        msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                  "\nملاحظة: الرسالة الحالية غير صالحة بسبب مشاكل في الماركداون. قد يكون ذلك بسبب اسم المستخدم."),
-                                                  parse_mode=ParseMode.MARKDOWN)
+        msg = update.effective_message.reply_text(
+            markdown_parser(backup_message +
+                            "\nملاحظة: الرسالة الحالية غير صالحة بسبب مشاكل في الماركداون. قد يكون ذلك بسبب اسم المستخدم."),
+            parse_mode=ParseMode.MARKDOWN
+        )
     except KeyError:
-        msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                  "\nملاحظة: الرسالة الحالية غير صالحة بسبب مشكلة في الأقواس. يرجى التحديث."),
-                                                  parse_mode=ParseMode.MARKDOWN)
+        msg = update.effective_message.reply_text(
+            markdown_parser(backup_message +
+                            "\nملاحظة: الرسالة الحالية غير صالحة بسبب مشكلة في الأقواس. يرجى التحديث."),
+            parse_mode=ParseMode.MARKDOWN
+        )
     except BadRequest as excp:
         if excp.message == "Button_url_invalid":
-            msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                      "\nملاحظة: الرسالة الحالية تحتوي على رابط غير صالح في أحد الأزرار. يرجى التحديث."),
-                                                      parse_mode=ParseMode.MARKDOWN)
+            msg = update.effective_message.reply_text(
+                markdown_parser(backup_message +
+                                "\nملاحظة: الرسالة الحالية تحتوي على رابط غير صالح في أحد الأزرار. يرجى التحديث."),
+                parse_mode=ParseMode.MARKDOWN
+            )
         elif excp.message == "Unsupported url protocol":
-            msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                      "\nملاحظة: الرسالة الحالية تحتوي على أزرار تستخدم بروتوكولات روابط غير مدعومة من تليجرام. يرجى التحديث."),
-                                                      parse_mode=ParseMode.MARKDOWN)
+            msg = update.effective_message.reply_text(
+                markdown_parser(backup_message +
+                                "\nملاحظة: الرسالة الحالية تحتوي على أزرار تستخدم بروتوكولات روابط غير مدعومة من تليجرام. يرجى التحديث."),
+                parse_mode=ParseMode.MARKDOWN
+            )
         elif excp.message == "Wrong url host":
-            msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                      "\nملاحظة: الرسالة الحالية تحتوي على بعض الروابط الخاطئة. يرجى التحديث."),
-                                                      parse_mode=ParseMode.MARKDOWN)
+            msg = update.effective_message.reply_text(
+                markdown_parser(backup_message +
+                                "\nملاحظة: الرسالة الحالية تحتوي على بعض الروابط الخاطئة. يرجى التحديث."),
+                parse_mode=ParseMode.MARKDOWN
+            )
             LOGGER.warning(message)
             LOGGER.warning(keyboard)
             LOGGER.exception("تعذر التحليل! حدث خطأ في مضيف الرابط.")
         elif excp.message == "Replied message not found":
-            LOGGER.warning("الرسالة الأصلية محذوفة")
+            LOGGER.warning("الرسالة الأصلية محذوفة، تجاهل الرد.")
+            return None  # عدم محاولة الرد على رسالة محذوفة
         elif excp.message == "Have no rights to send a message":
             LOGGER.warning("مكتوم في الدردشة أدناه")
             print(update.effective_message.chat.id)
         else:
-            msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                      "\nملاحظة: حدث خطأ عند إرسال الرسالة المخصصة. يرجى التحديث."),
-                                                      parse_mode=ParseMode.MARKDOWN)
+            msg = update.effective_message.reply_text(
+                markdown_parser(backup_message +
+                                "\nملاحظة: حدث خطأ عند إرسال الرسالة المخصصة. يرجى التحديث."),
+                parse_mode=ParseMode.MARKDOWN
+            )
             LOGGER.exception()
 
     return msg
@@ -94,16 +112,20 @@ def del_joined(bot: Bot, update: Update, args: List[str]) -> str:
         return "<b>{}:</b>" \
                "\n#تنظيف_رسائل_الانضمام" \
                "\n<b>المشرف:</b> {}" \
-               "\nقام بتشغيل حذف رسائل الانضمام إلى <code>ON</code>.".format(html.escape(chat.title),
-                                                                         mention_html(user.id, user.first_name))
+               "\nقام بتشغيل حذف رسائل الانضمام إلى <code>ON</code>.".format(
+                   html.escape(chat.title),
+                   mention_html(user.id, user.first_name)
+               )
     elif args[0].lower() in ("off", "no"):
         sql.set_del_joined(str(chat.id), False)
         update.effective_message.reply_text("لن أحذف رسائل الانضمام القديمة.")
         return "<b>{}:</b>" \
-               "\n#تنظيف_رسائل_الانضمام" \
+               "\n#تنظيف_رسائل_الضمام" \
                "\n<b>المشرف:</b> {}" \
-               "\nقام بإيقاف حذف رسائل الانضمام إلى <code>OFF</code>.".format(html.escape(chat.title),
-                                                                          mention_html(user.id, user.first_name))
+               "\nقام بإيقاف حذف رسائل الانضمام إلى <code>OFF</code>.".format(
+                   html.escape(chat.title),
+                   mention_html(user.id, user.first_name)
+               )
     else:
         update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
         return ""
@@ -112,18 +134,20 @@ def del_joined(bot: Bot, update: Update, args: List[str]) -> str:
 @run_async
 def delete_join(bot: Bot, update: Update):
     chat = update.effective_chat
-    join = update.effective_message.new_chat_members
     if can_delete(chat, bot.id):
         del_join = sql.get_del_pref(chat.id)
         if del_join:
-            update.message.delete()
+            try:
+                update.message.delete()
+            except BadRequest:
+                pass  # الرسالة قد تكون محذوفة بالفعل
 
 
 @run_async
 def new_member(bot: Bot, update: Update):
     chat = update.effective_chat
-
     should_welc, cust_welcome, welc_type = sql.get_welc_pref(chat.id)
+
     if should_welc:
         sent = None
         new_members = update.effective_message.new_chat_members
@@ -133,52 +157,52 @@ def new_member(bot: Bot, update: Update):
                 continue
             elif new_mem.id == bot.id:
                 continue
-            else:
-                if welc_type != sql.Types.TEXT and welc_type != sql.Types.BUTTON_TEXT:
+
+            if welc_type not in (sql.Types.TEXT, sql.Types.BUTTON_TEXT):
+                try:
                     ENUM_FUNC_MAP[welc_type](chat.id, cust_welcome)
-                    return
-                first_name = new_mem.first_name or "شخص_بدون_اسم"
+                except BadRequest:
+                    pass  # تجاهل الأخطاء البسيطة
+                return
 
-                if cust_welcome:
-                    if new_mem.last_name:
-                        fullname = "{} {}".format(first_name, new_mem.last_name)
-                    else:
-                        fullname = first_name
-                    count = chat.get_members_count()
-                    mention = mention_markdown(new_mem.id, escape_markdown(first_name))
-                    if new_mem.username:
-                        username = "@" + escape_markdown(new_mem.username)
-                    else:
-                        username = mention
+            first_name = new_mem.first_name or "شخص_بدون_اسم"
+            if cust_welcome:
+                fullname = f"{first_name} {new_mem.last_name}" if new_mem.last_name else first_name
+                count = chat.get_members_count()
+                mention = mention_markdown(new_mem.id, escape_markdown(first_name))
+                username = f"@{escape_markdown(new_mem.username)}" if new_mem.username else mention
 
-                    valid_format = escape_invalid_curly_brackets(cust_welcome, VALID_WELCOME_FORMATTERS)
+                valid_format = escape_invalid_curly_brackets(cust_welcome, VALID_WELCOME_FORMATTERS)
+                if not valid_format:
+                    continue
 
-                    if not valid_format:
-                        return
+                res = valid_format.format(
+                    first=escape_markdown(first_name),
+                    last=escape_markdown(new_mem.last_name or first_name),
+                    fullname=escape_markdown(fullname),
+                    username=username,
+                    mention=mention,
+                    count=count,
+                    chatname=escape_markdown(chat.title),
+                    id=new_mem.id
+                )
+                buttons = sql.get_welc_buttons(chat.id)
+                keyb = build_keyboard(buttons)
+            else:
+                res = sql.DEFAULT_WELCOME.format(first=first_name)
+                keyb = []
 
-                    res = valid_format.format(first=escape_markdown(first_name),
-                                              last=escape_markdown(new_mem.last_name or first_name),
-                                              fullname=escape_markdown(fullname), username=username, mention=mention,
-                                              count=count, chatname=escape_markdown(chat.title), id=new_mem.id)
-                    buttons = sql.get_welc_buttons(chat.id)
-                    keyb = build_keyboard(buttons)
-                else:
-                    res = sql.DEFAULT_WELCOME.format(first=first_name)
-                    keyb = []
+            keyboard = InlineKeyboardMarkup(keyb) if keyb else None
+            sent = send(update, res, keyboard, sql.DEFAULT_WELCOME.format(first=first_name))
 
-                keyboard = InlineKeyboardMarkup(keyb)
-
-                sent = send(update, res, keyboard,
-                            sql.DEFAULT_WELCOME.format(first=first_name))
             delete_join(bot, update)
 
         prev_welc = sql.get_clean_pref(chat.id)
         if prev_welc:
             try:
                 bot.delete_message(chat.id, prev_welc)
-            except BadRequest as excp:
+            except BadRequest:
                 pass
-
             if sent:
                 sql.set_clean_welcome(chat.id, sent.message_id)
 
@@ -187,48 +211,52 @@ def new_member(bot: Bot, update: Update):
 def left_member(bot: Bot, update: Update):
     chat = update.effective_chat
     should_goodbye, cust_goodbye, goodbye_type = sql.get_gdbye_pref(chat.id)
+
     if should_goodbye:
         left_mem = update.effective_message.left_chat_member
-        if left_mem:
-            if left_mem.id == bot.id:
-                return
-            if left_mem.id == OWNER_ID:
-                update.effective_message.reply_text("وداعاً أيها المالك")
-                return
+        if not left_mem or left_mem.id == bot.id:
+            return
+        if left_mem.id == OWNER_ID:
+            update.effective_message.reply_text("وداعاً أيها المالك")
+            return
 
-            if goodbye_type != sql.Types.TEXT and goodbye_type != sql.Types.BUTTON_TEXT:
+        if goodbye_type not in (sql.Types.TEXT, sql.Types.BUTTON_TEXT):
+            try:
                 ENUM_FUNC_MAP[goodbye_type](chat.id, cust_goodbye)
+            except BadRequest:
+                pass
+            return
+
+        first_name = left_mem.first_name or "شخص_بدون_اسم"
+        if cust_goodbye:
+            fullname = f"{first_name} {left_mem.last_name}" if left_mem.last_name else first_name
+            count = chat.get_members_count()
+            mention = mention_markdown(left_mem.id, first_name)
+            username = f"@{escape_markdown(left_mem.username)}" if left_mem.username else mention
+
+            valid_format = escape_invalid_curly_brackets(cust_goodbye, VALID_WELCOME_FORMATTERS)
+            if not valid_format:
                 return
 
-            first_name = left_mem.first_name or "شخص_بدون_اسم"
-            if cust_goodbye:
-                if left_mem.last_name:
-                    fullname = "{} {}".format(first_name, left_mem.last_name)
-                else:
-                    fullname = first_name
-                count = chat.get_members_count()
-                mention = mention_markdown(left_mem.id, first_name)
-                if left_mem.username:
-                    username = "@" + escape_markdown(left_mem.username)
-                else:
-                    username = mention
+            res = valid_format.format(
+                first=escape_markdown(first_name),
+                last=escape_markdown(left_mem.last_name or first_name),
+                fullname=escape_markdown(fullname),
+                username=username,
+                mention=mention,
+                count=count,
+                chatname=escape_markdown(chat.title),
+                id=left_mem.id
+            )
+            buttons = sql.get_gdbye_buttons(chat.id)
+            keyb = build_keyboard(buttons)
+        else:
+            res = sql.DEFAULT_GOODBYE
+            keyb = []
 
-                valid_format = escape_invalid_curly_brackets(cust_goodbye, VALID_WELCOME_FORMATTERS)
-                res = valid_format.format(first=escape_markdown(first_name),
-                                          last=escape_markdown(left_mem.last_name or first_name),
-                                          fullname=escape_markdown(fullname), username=username, mention=mention,
-                                          count=count, chatname=escape_markdown(chat.title), id=left_mem.id)
-                buttons = sql.get_gdbye_buttons(chat.id)
-                keyb = build_keyboard(buttons)
-
-            else:
-                res = sql.DEFAULT_GOODBYE
-                keyb = []
-
-            keyboard = InlineKeyboardMarkup(keyb)
-
-            send(update, res, keyboard, sql.DEFAULT_GOODBYE)
-            delete_join(bot, update)
+        keyboard = InlineKeyboardMarkup(keyb) if keyb else None
+        send(update, res, keyboard, sql.DEFAULT_GOODBYE)
+        delete_join(bot, update)
 
 
 @run_async
@@ -239,37 +267,37 @@ def welcome(bot: Bot, update: Update, args: List[str]):
         noformat = args and args[0].lower() == "noformat"
         pref, welcome_m, welcome_type = sql.get_welc_pref(chat.id)
         update.effective_message.reply_text(
-            "إعدادات الترحيب لهذه الدردشة: `{}`.\n*رسالة الترحيب (بدون تعبئة الـ {{}}):*".format(pref),
-            parse_mode=ParseMode.MARKDOWN)
+            f"إعدادات الترحيب لهذه الدردشة: `{pref}`.\n*رسالة الترحيب (بدون تعبئة الـ {{}}):*",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
         if welcome_type == sql.Types.BUTTON_TEXT:
             buttons = sql.get_welc_buttons(chat.id)
             if noformat:
                 welcome_m += revert_buttons(buttons)
                 update.effective_message.reply_text(welcome_m)
-
             else:
                 keyb = build_keyboard(buttons)
                 keyboard = InlineKeyboardMarkup(keyb)
-
                 send(update, welcome_m, keyboard, sql.DEFAULT_WELCOME)
-
         else:
             if noformat:
-                ENUM_FUNC_MAP[welcome_type](chat.id, welcome_m)
-
+                try:
+                    ENUM_FUNC_MAP[welcome_type](chat.id, welcome_m)
+                except BadRequest:
+                    pass
             else:
-                ENUM_FUNC_MAP[welcome_type](chat.id, welcome_m, parse_mode=ParseMode.MARKDOWN)
-
+                try:
+                    ENUM_FUNC_MAP[welcome_type](chat.id, welcome_m, parse_mode=ParseMode.MARKDOWN)
+                except BadRequest:
+                    pass
     elif len(args) >= 1:
         if args[0].lower() in ("on", "yes"):
             sql.set_welc_preference(str(chat.id), True)
             update.effective_message.reply_text("سأكون مهذباً!")
-
         elif args[0].lower() in ("off", "no"):
             sql.set_welc_preference(str(chat.id), False)
             update.effective_message.reply_text("لن أقول مرحباً بعد الآن.")
-
         else:
             update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
 
@@ -278,42 +306,41 @@ def welcome(bot: Bot, update: Update, args: List[str]):
 @user_admin
 def goodbye(bot: Bot, update: Update, args: List[str]):
     chat = update.effective_chat
-
     if len(args) == 0 or args[0] == "noformat":
         noformat = args and args[0] == "noformat"
         pref, goodbye_m, goodbye_type = sql.get_gdbye_pref(chat.id)
         update.effective_message.reply_text(
-            "إعدادات الوداع لهذه الدردشة: `{}`.\n*رسالة الوداع (بدون تعبئة الـ {{}}):*".format(pref),
-            parse_mode=ParseMode.MARKDOWN)
+            f"إعدادات الوداع لهذه الدردشة: `{pref}`.\n*رسالة الوداع (بدون تعبئة الـ {{}}):*",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
         if goodbye_type == sql.Types.BUTTON_TEXT:
             buttons = sql.get_gdbye_buttons(chat.id)
             if noformat:
                 goodbye_m += revert_buttons(buttons)
                 update.effective_message.reply_text(goodbye_m)
-
             else:
                 keyb = build_keyboard(buttons)
                 keyboard = InlineKeyboardMarkup(keyb)
-
                 send(update, goodbye_m, keyboard, sql.DEFAULT_GOODBYE)
-
         else:
             if noformat:
-                ENUM_FUNC_MAP[goodbye_type](chat.id, goodbye_m)
-
+                try:
+                    ENUM_FUNC_MAP[goodbye_type](chat.id, goodbye_m)
+                except BadRequest:
+                    pass
             else:
-                ENUM_FUNC_MAP[goodbye_type](chat.id, goodbye_m, parse_mode=ParseMode.MARKDOWN)
-
+                try:
+                    ENUM_FUNC_MAP[goodbye_type](chat.id, goodbye_m, parse_mode=ParseMode.MARKDOWN)
+                except BadRequest:
+                    pass
     elif len(args) >= 1:
         if args[0].lower() in ("on", "yes"):
             sql.set_gdbye_preference(str(chat.id), True)
             update.effective_message.reply_text("سأشعر بالأسف عندما يغادر الناس!")
-
         elif args[0].lower() in ("off", "no"):
             sql.set_gdbye_preference(str(chat.id), False)
             update.effective_message.reply_text("يغادرون، إنهم أموات بالنسبة لي.")
-
         else:
             update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
 
@@ -338,8 +365,10 @@ def set_welcome(bot: Bot, update: Update) -> str:
     return "<b>{}:</b>" \
            "\n#تعيين_ترحيب" \
            "\n<b>المشرف:</b> {}" \
-           "\nقام بتعيين رسالة الترحيب.".format(html.escape(chat.title),
-                                               mention_html(user.id, user.first_name))
+           "\nقام بتعيين رسالة الترحيب.".format(
+               html.escape(chat.title),
+               mention_html(user.id, user.first_name)
+           )
 
 
 @run_async
@@ -353,8 +382,10 @@ def reset_welcome(bot: Bot, update: Update) -> str:
     return "<b>{}:</b>" \
            "\n#إعادة_تعيين_ترحيب" \
            "\n<b>المشرف:</b> {}" \
-           "\nقام بإعادة تعيين رسالة الترحيب إلى الافتراضية.".format(html.escape(chat.title),
-                                                            mention_html(user.id, user.first_name))
+           "\nقام بإعادة تعيين رسالة الترحيب إلى الافتراضية.".format(
+               html.escape(chat.title),
+               mention_html(user.id, user.first_name)
+           )
 
 
 @run_async
@@ -375,8 +406,10 @@ def set_goodbye(bot: Bot, update: Update) -> str:
     return "<b>{}:</b>" \
            "\n#تعيين_وداع" \
            "\n<b>المشرف:</b> {}" \
-           "\nقام بتعيين رسالة الوداع.".format(html.escape(chat.title),
-                                               mention_html(user.id, user.first_name))
+           "\nقام بتعيين رسالة الوداع.".format(
+               html.escape(chat.title),
+               mention_html(user.id, user.first_name)
+           )
 
 
 @run_async
@@ -390,8 +423,10 @@ def reset_goodbye(bot: Bot, update: Update) -> str:
     return "<b>{}:</b>" \
            "\n#إعادة_تعيين_وداع" \
            "\n<b>المشرف:</b> {}" \
-           "\nقام بإعادة تعيين رسالة الوداع.".format(html.escape(chat.title),
-                                                 mention_html(user.id, user.first_name))
+           "\nقام بإعادة تعيين رسالة الوداع.".format(
+               html.escape(chat.title),
+               mention_html(user.id, user.first_name)
+           )
 
 
 @run_async
@@ -415,16 +450,20 @@ def clean_welcome(bot: Bot, update: Update, args: List[str]) -> str:
         return "<b>{}:</b>" \
                "\n#تنظيف_ترحيب" \
                "\n<b>المشرف:</b> {}" \
-               "\nقام بتشغيل تنظيف الترحيب إلى <code>ON</code>.".format(html.escape(chat.title),
-                                                                         mention_html(user.id, user.first_name))
+               "\nقام بتشغيل تنظيف الترحيب إلى <code>ON</code>.".format(
+                   html.escape(chat.title),
+                   mention_html(user.id, user.first_name)
+               )
     elif args[0].lower() in ("off", "no"):
         sql.set_clean_welcome(str(chat.id), False)
         update.effective_message.reply_text("لن أحذف رسائل الترحيب القديمة.")
         return "<b>{}:</b>" \
                "\n#تنظيف_ترحيب" \
                "\n<b>المشرف:</b> {}" \
-               "\nقام بإيقاف تنظيف الترحيب إلى <code>OFF</code>.".format(html.escape(chat.title),
-                                                                          mention_html(user.id, user.first_name))
+               "\nقام بإيقاف تنظيف الترحيب إلى <code>OFF</code>.".format(
+                   html.escape(chat.title),
+                   mention_html(user.id, user.first_name)
+               )
     else:
         update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
         return ""
@@ -461,13 +500,13 @@ def __migrate__(old_chat_id, new_chat_id):
 def __chat_settings__(chat_id, user_id):
     welcome_pref, _, _ = sql.get_welc_pref(chat_id)
     goodbye_pref, _, _ = sql.get_gdbye_pref(chat_id)
-    return "إعدادات الترحيب لهذه الدردشة: `{}`.\nإعدادات الوداع: `{}`.".format(welcome_pref, goodbye_pref)
+    return f"إعدادات الترحيب لهذه الدردشة: `{welcome_pref}`.\nإعدادات الوداع: `{goodbye_pref}`."
 
 
-# ================== المساعدة ==================
-__help__ = """
-{}
-*للمشرفين فقط:*
+__help__ = f"""
+{__mod_name__}
+
+**للمشرفين فقط:**
 - /welcome <on/off>: تفعيل/تعطيل رسائل الترحيب.
 - /welcome: عرض إعدادات الترحيب الحالية.
 - /welcome noformat: عرض إعدادات الترحيب الحالية بدون تنسيق - مفيد لإعادة استخدام رسائلك!
@@ -480,7 +519,7 @@ __help__ = """
 - /rmjoin <on/off>: عندما ينضم شخص، حاول حذف رسالة انضمام المستخدم.
 - /welcomehelp: عرض المزيد من معلومات التنسيق لرسائل الترحيب/الوداع المخصصة.
 
-*الأوامر العربية (بدون /):*
+**الأوامر العربية (بدون /):**
 تشغيل الترحيب: تفعيل رسائل الترحيب
 إيقاف الترحيب: تعطيل رسائل الترحيب
 الترحيب: عرض إعدادات الترحيب
@@ -492,7 +531,7 @@ __help__ = """
 تنظيف ترحيب <on/off>: تفعيل/تعطيل تنظيف الترحيب
 حذف انضمام <on/off>: تفعيل/تعطيل حذف رسائل الانضمام
 مساعدة ترحيب: عرض تعليمات الترحيب
-""".format(WELC_HELP_TXT)
+"""
 
 __mod_name__ = "الترحيب"
 
