@@ -76,7 +76,7 @@ def send(update, message, keyboard, backup_message):
             LOGGER.exception("تعذر التحليل! حدث خطأ في مضيف الرابط.")
         elif excp.message == "Replied message not found":
             LOGGER.warning("الرسالة الأصلية محذوفة، تجاهل الرد.")
-            return None  # عدم محاولة الرد على رسالة محذوفة
+            return None
         elif excp.message == "Have no rights to send a message":
             LOGGER.warning("مكتوم في الدردشة أدناه")
             print(update.effective_message.chat.id)
@@ -140,7 +140,7 @@ def delete_join(bot: Bot, update: Update):
             try:
                 update.message.delete()
             except BadRequest:
-                pass  # الرسالة قد تكون محذوفة بالفعل
+                pass
 
 
 @run_async
@@ -162,7 +162,7 @@ def new_member(bot: Bot, update: Update):
                 try:
                     ENUM_FUNC_MAP[welc_type](chat.id, cust_welcome)
                 except BadRequest:
-                    pass  # تجاهل الأخطاء البسيطة
+                    pass
                 return
 
             first_name = new_mem.first_name or "شخص_بدون_اسم"
@@ -299,7 +299,7 @@ def welcome(bot: Bot, update: Update, args: List[str]):
             sql.set_welc_preference(str(chat.id), False)
             update.effective_message.reply_text("لن أقول مرحباً بعد الآن.")
         else:
-            update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
+            update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' hanya!")
 
 
 @run_async
@@ -342,7 +342,7 @@ def goodbye(bot: Bot, update: Update, args: List[str]):
             sql.set_gdbye_preference(str(chat.id), False)
             update.effective_message.reply_text("يغادرون، إنهم أموات بالنسبة لي.")
         else:
-            update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
+            update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' hanya!")
 
 
 @run_async
@@ -465,16 +465,16 @@ def clean_welcome(bot: Bot, update: Update, args: List[str]) -> str:
                    mention_html(user.id, user.first_name)
                )
     else:
-        update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
+        update.effective_message.reply_text("أنا أفهم 'on/yes' atau 'off/no' saja!")
         return ""
 
 
 WELC_HELP_TXT = """
 يمكن تخصيص رسائل الترحيب/الوداع لمجموعتك بعدة طرق. إذا كنت تريد أن يتم إنشاء الرسائل بشكل فردي، مثل رسالة الترحيب الافتراضية، يمكنك استخدام *هذه* المتغيرات:
 - `{{first}}`: يمثل الاسم *الأول* للمستخدم.
-- `{{last}}`: يمثل الاسم *الأخير* للمستخدم. يتحول إلى *الاسم الأول* إذا لم يكن للمستخدم اسم أخير.
-- `{{fullname}}`: يمثل الاسم *الكامل* للمستخدم. يتحول إلى *الاسم الأول* إذا لم يكن للمستخدم اسم أخير.
-- `{{username}}`: يمثل *اسم المستخدم* للمستخدم. يتحول إلى *منشن* للمستخدم إذا لم يكن له اسم مستخدم.
+- `{{last}}`: يمثل الاسم *الأخير* للمستخدم. يتحول إلى *الاسم الأول* jika tidak mempunyai nama belakang.
+- `{{fullname}}`: يمثل الاسم *الكامل* للمستخدم. يتحول إلى *الاسم الأول* jika tidak mempunyai nama belakang.
+- `{{username}}`: يمثل *اسم المستخدم* للمستخدم. يتحول إلى *منشن* للمستخدم jika tidak mempunyai username.
 - `{{mention}}`: يقوم ببساطة بعمل *منشن* للمستخدم.
 - `{{id}}`: يمثل *معرف* المستخدم.
 - `{{count}}`: يمثل *رقم العضوية* للمستخدم.
@@ -482,8 +482,8 @@ WELC_HELP_TXT = """
 
 يجب أن يكون كل متغير محاطاً بـ `{{}}` ليتم استبداله.
 رسائل الترحيب تدعم أيضاً الماركداون، لذا يمكنك جعل أي عناصر عريضة/مائلة/كود/روابط. الأزرار مدعومة أيضاً، لذا يمكنك جعل ترحيباتك رائعة مع بعض أزرار المقدمة الجميلة.
-لإنشاء زر يربط بقوانينك، استخدم هذا: `[القوانين](buttonurl://t.me/{}?start=group_id)`. فقط استبدل `group_id` بمعرف مجموعتك، والذي يمكن الحصول عليه عبر /id، وكل شيء سيكون على ما يرام. لاحظ أن معرفات المجموعات عادة ما يسبقها علامة `-`، وهذا مطلوب، لذا يرجى عدم إزالتها.
-إذا كنت تشعر بالمرح، يمكنك حتى تعيين صور/gifs/فيديو/رسائل صوتية كرسالة ترحيب من خلال الرد على الوسائط المرغوبة واستدعاء /setwelcome.
+لإنشاء زر يربط بقوانينك، استخدم هذا: `[القوانين](buttonurl://t.me/{}?start=group_id)`. فقط استبدل `group_id` بمعرف مجموعتك، والذي يمكن الحصول عليه melalui /id, dan semuanya akan beres. Perhatikan bahwa id grup biasanya didahului dengan tanda `-`, ini diperlukan, jadi tolong jangan dihapus.
+Jika kamu merasa kreatif, kamu bahkan bisa mengatur gambar/gif/video/pesan suara sebagai pesan selamat datang dengan membalas media yang diinginkan dan memanggil /setwelcome.
 """.format(dispatcher.bot.username)
 
 
@@ -503,37 +503,27 @@ def __chat_settings__(chat_id, user_id):
     return f"إعدادات الترحيب لهذه الدردشة: `{welcome_pref}`.\nإعدادات الوداع: `{goodbye_pref}`."
 
 
-__help__ = f"""
-{__mod_name__}
-
-**للمشرفين فقط:**
+__mod_name__ = "الترحيب"
+__help__ = """
+**الأوامر المتاحة:**
 - /welcome <on/off>: تفعيل/تعطيل رسائل الترحيب.
 - /welcome: عرض إعدادات الترحيب الحالية.
-- /welcome noformat: عرض إعدادات الترحيب الحالية بدون تنسيق - مفيد لإعادة استخدام رسائلك!
-- /goodbye: نفس الاستخدام والوسائط كـ /welcome.
-- /setwelcome <نص>: تعيين رسالة ترحيب مخصصة. إذا استخدمت بالرد على وسائط، يستخدم تلك الوسائط.
-- /setgoodbye <نص>: تعيين رسالة وداع مخصصة. إذا استخدمت بالرد على وسائط، يستخدم تلك الوسائط.
+- /welcome noformat: عرض إعدادات الترحيب الحالية بدون تنسيق.
+- /goodbye: نفس /welcome.
+- /setwelcome <نص>: تعيين رسالة ترحيب مخصصة.
+- /setgoodbye <نص>: تعيين رسالة وداع مخصصة.
 - /resetwelcome: إعادة تعيين رسالة الترحيب إلى الافتراضية.
 - /resetgoodbye: إعادة تعيين رسالة الوداع إلى الافتراضية.
-- /cleanwelcome <on/off>: عند عضو جديد، حاول حذف رسالة الترحيب السابقة لتجنب إزعاج الدردشة.
-- /rmjoin <on/off>: عندما ينضم شخص، حاول حذف رسالة انضمام المستخدم.
-- /welcomehelp: عرض المزيد من معلومات التنسيق لرسائل الترحيب/الوداع المخصصة.
+- /cleanwelcome <on/off>: تنظيف رسائل الترحيب القديمة.
+- /rmjoin <on/off>: حذف رسائل انضمام المستخدم.
+- /welcomehelp: تعليمات مفصلة للترحيب.
 
-**الأوامر العربية (بدون /):**
-تشغيل الترحيب: تفعيل رسائل الترحيب
-إيقاف الترحيب: تعطيل رسائل الترحيب
-الترحيب: عرض إعدادات الترحيب
-تعيين ترحيب <نص>: تعيين رسالة ترحيب مخصصة
-إعادة ترحيب: إعادة تعيين الترحيب إلى الافتراضي
-وداع: عرض إعدادات الوداع
-تعيين وداع <نص>: تعيين رسالة وداع مخصصة
-إعادة وداع: إعادة تعيين الوداع إلى الافتراضي
-تنظيف ترحيب <on/off>: تفعيل/تعطيل تنظيف الترحيب
-حذف انضمام <on/off>: تفعيل/تعطيل حذف رسائل الانضمام
-مساعدة ترحيب: عرض تعليمات الترحيب
+**الأوامر العربية:**
+تشغيل الترحيب | إيقاف الترحيب | الترحيب
+تعيين ترحيب | إعادة ترحيب | وداع
+تعيين وداع | إعادة وداع | تنظيف ترحيب
+حذف انضمام | مساعدة ترحيب
 """
-
-__mod_name__ = "الترحيب"
 
 NEW_MEM_HANDLER = MessageHandler(Filters.status_update.new_chat_members, new_member)
 LEFT_MEM_HANDLER = MessageHandler(Filters.status_update.left_chat_member, left_member)
