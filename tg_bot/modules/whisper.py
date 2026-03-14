@@ -10,18 +10,14 @@ LOGGER = logging.getLogger(__name__)
 __mod_name__ = "الهمسات"
 
 # تخزين مؤقت للبيانات
-# انتظار الهمسات: المفتاح هو chat_id + منشئ الهمسة، القيمة تحتوي على معرف المستهدف والمجموعة
 waiting_whispers = {}
-
-# الهمسات المكتملة: المفتاح معرف فريد، القيمة تحتوي على النص والمصدر والمستهدف
 completed_whispers = {}
-
-# ربط الأزرار بالهمسات
 button_map = {}
+
 
 @run_async
 def whisper_cmd(bot, update):
-    """معالج الأمر 'ه' - يبدأ عملية الهمسة"""
+    """معالج الأمر 'ه' - يبدأ عملية الهمسة (يدعم /ه و ه)"""
     message = update.effective_message
     user = update.effective_user
     chat = update.effective_chat
@@ -35,15 +31,13 @@ def whisper_cmd(bot, update):
 
     target = message.reply_to_message.from_user
 
-    # لا يمكن إرسال همسة للنفس
     if target.id == user.id:
         message.reply_text("❌ لا يمكنك إرسال همسة لنفسك.")
         return
 
-    # إنشاء معرف مؤقت لهذه العملية
+    # إنشاء معرف مؤقت
     process_id = f"{chat.id}_{user.id}_{int(time.time())}"
 
-    # تخزين البيانات في انتظار كتابة الهمسة
     waiting_whispers[process_id] = {
         "from_user": user.id,
         "to_user": target.id,
@@ -53,9 +47,12 @@ def whisper_cmd(bot, update):
         "step": "waiting_for_message"
     }
 
-    # زر لدخول المحادثة الخاصة
+    # رابط بدء المحادثة الخاصة
+    bot_username = bot.username
+    deep_link = f"https://t.me/{bot_username}?start=whisper_{process_id}"
+
     keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("✍️ اكتب الهمسة هنا", url=f"https://t.me/{bot.username}?start=whisper_{process_id}")
+        InlineKeyboardButton("✍️ اكتب الهمسة هنا", url=deep_link)
     ]])
 
     message.reply_text(
@@ -63,6 +60,7 @@ def whisper_cmd(bot, update):
         f"اضغط على الزر أدناه للدخول إلى المحادثة الخاصة وكتابة الهمسة.",
         reply_markup=keyboard
     )
+
 
 @run_async
 def whisper_private_start(bot, update):
@@ -77,7 +75,7 @@ def whisper_private_start(bot, update):
     text = message.text
     LOGGER.info(f"بدء خاص من {user.id} بالنص: {text}")
 
-    # إذا كان هناك كود تعريف في الرابط (start=whisper_...)
+    # إذا كان هناك deep link
     if text.startswith("/start whisper_"):
         process_id = text.split("_", 1)[1]
         data = waiting_whispers.get(process_id)
@@ -90,13 +88,12 @@ def whisper_private_start(bot, update):
             f"👤 أنت ترسل همسة إلى {data['to_name']}.\n"
             f"اكتب الآن الرسالة التي تريد إرسالها:"
         )
-        # ننتظر الرسالة القادمة من هذا المستخدم في الخاص
         waiting_whispers[process_id]["step"] = "awaiting_message"
 
     else:
-        # رسالة عادية في الخاص - تحقق مما إذا كان المستخدم في مرحلة انتظار الهمسة
-        # ابحث عن أي عملية تخص هذا المستخدم وفي حالة awaiting_message
+        # رسالة عادية في الخاص
         found = False
+        to_delete = []
         for pid, data in waiting_whispers.items():
             if data["from_user"] == user.id and data.get("step") == "awaiting_message":
                 # هذه هي الهمسة المنتظرة
@@ -105,7 +102,7 @@ def whisper_private_start(bot, update):
                     message.reply_text("❌ الهمسة لا يمكن أن تكون فارغة.")
                     return
 
-                # إنشاء معرف نهائي للهمسة
+                # إنشاء معرف نهائي
                 final_id = f"final_{int(time.time())}_{user.id}"
                 completed_whispers[final_id] = {
                     "from_user": user.id,
@@ -116,30 +113,37 @@ def whisper_private_start(bot, update):
                     "chat_id": data["chat_id"]
                 }
 
-                # إرسال إشعار في المجموعة مع زر للعرض
+                # زر العرض في المجموعة
                 keyboard = InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔓 عرض الهمسة", callback_data=f"show_{final_id}")
                 ]])
                 button_map[f"show_{final_id}"] = final_id
 
-                bot.send_message(
-                    chat_id=data["chat_id"],
-                    text=f"🔔 **همسة إلى {data['to_name']}**\n"
-                         f"المرسل {data['from_name']} كتب الهمسة. اضغط الزر لعرضها.",
-                    reply_markup=keyboard
-                )
+                try:
+                    bot.send_message(
+                        chat_id=data["chat_id"],
+                        text=f"🔔 **همسة إلى {data['to_name']}**\n"
+                             f"المرسل {data['from_name']} كتب الهمسة. اضغط الزر لعرضها.",
+                        reply_markup=keyboard
+                    )
+                    message.reply_text("✅ تم حفظ الهمسة وإرسال الإشعار في المجموعة.")
+                except Exception as e:
+                    LOGGER.error(f"فشل إرسال الإشعار للمجموعة: {e}")
+                    message.reply_text("❌ فشل إرسال الإشعار للمجموعة. قد لا يكون البوت مشرفاً.")
+                    return
 
-                # إعلام المرسل
-                message.reply_text("✅ تم حفظ الهمسة وإرسال الإشعار في المجموعة.")
-
-                # حذف العملية المؤقتة
-                del waiting_whispers[pid]
+                to_delete.append(pid)
                 found = True
                 break
 
+        # حذف العمليات المؤقتة المنتهية
+        for pid in to_delete:
+            if pid in waiting_whispers:
+                del waiting_whispers[pid]
+
         if not found:
-            # لا توجد عملية انتظار، رد عادي
             message.reply_text("👋 مرحباً! لاستخدام الهمسات، أضفني إلى مجموعة واكتب `ه` مع الرد على شخص.")
+
 
 @run_async
 def whisper_show_button(bot, update):
@@ -159,12 +163,10 @@ def whisper_show_button(bot, update):
         query.message.delete()
         return
 
-    # تأكد أن المستخدم هو المستهدف فقط
     if user.id != whisper["to_user"]:
         query.answer("❌ هذه الهمسة ليست لك!", show_alert=True)
         return
 
-    # إرسال الهمسة في الخاص للمستلم
     try:
         bot.send_message(
             chat_id=user.id,
@@ -181,10 +183,12 @@ def whisper_show_button(bot, update):
         )
         # تنظيف الذاكرة
         del completed_whispers[final_id]
-        del button_map[data]
+        if data in button_map:
+            del button_map[data]
     except Exception as e:
         LOGGER.error(f"فشل إرسال الهمسة: {e}")
         query.answer("❌ فشل إرسال الهمسة. تأكد من أنك بدأت محادثة مع البوت.", show_alert=True)
+
 
 @run_async
 def start_private(bot, update):
@@ -192,11 +196,13 @@ def start_private(bot, update):
     if update.effective_chat.type == "private":
         update.effective_message.reply_text(
             "👋 مرحباً! هذا البوت يدعم الهمسات.\n"
-            "لإرسال همسة، أضفني إلى مجموعة، ثم اكتب `ه` مع الرد على الشخص."
+            "لإرسال همسة، أضفني إلى مجموعة، ثم اكتب `/ه` أو `ه` مع الرد على الشخص."
         )
 
+
 # إضافة المعالجات
-dispatcher.add_handler(MessageHandler(Filters.regex(r'^ه$') & Filters.group, whisper_cmd))
+dispatcher.add_handler(CommandHandler("ه", whisper_cmd, filters=Filters.group))  # الأمر /ه
+dispatcher.add_handler(MessageHandler(Filters.regex(r'^ه$') & Filters.group, whisper_cmd))  # الأمر ه بدون /
 dispatcher.add_handler(CommandHandler("start", start_private))
 dispatcher.add_handler(MessageHandler(Filters.text & Filters.private, whisper_private_start))
 dispatcher.add_handler(CallbackQueryHandler(whisper_show_button, pattern=r"^show_"))
