@@ -1,17 +1,13 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 🤫 وحدة الهمسة السرية لبوت Rose
-نسخة مخصصة من GitHub
+متوافقة مع نظام Rose الفعلي
 
 الأمر: ه
-الاستخدام: رد على رسالة واكتب ه
 """
 
-from pyrogram import Client, filters
-from pyrogram.types import Message
-import asyncio
 import logging
+from telegram import Update
+from telegram.ext import Application, ContextTypes, CommandHandler
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +17,7 @@ __HELP__ = """
 
 الاستخدام:
 1️⃣ رد على أي رسالة
-2️⃣ اكتب: ه
+2️⃣ اكتب: /ه
 3️⃣ سيتم إرسال همسة سرية
 
 ✨ المميزات:
@@ -32,136 +28,132 @@ __HELP__ = """
 """
 
 
-async def load_module(app: Client):
-    """تحميل وحدة الهمسة السرية"""
+async def hemsa(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    أمر الهمسة السرية
+    يحول الرسالة المرد عليها إلى همسة سرية
+    """
     
-    @app.on_message(filters.command("ه") & ~filters.private)
-    async def همسة_سرية(عميل: Client, رسالة: Message):
-        """وحدة الهمسة السرية - أمر الهمسة السريع"""
+    message = update.message
+    
+    # التحقق من أن الأمر رد على رسالة
+    if not message.reply_to_message:
+        error_msg = await message.reply_text(
+            "❌ **استخدام خاطئ!**\n\n"
+            "طريقة الاستخدام:\n"
+            "1️⃣ رد على أي رسالة\n"
+            "2️⃣ اكتب: `/ه`\n\n"
+            "سيتم إرسال همسة سرية للمستقبل فقط!",
+            parse_mode="markdown"
+        )
         
-        # التحقق من أن الأمر رد على رسالة
-        if not رسالة.reply_to_message:
-            الخطأ = await رسالة.reply_text(
-                "❌ **استخدام خاطئ!**\n\n"
-                "طريقة الاستخدام:\n"
-                "1️⃣ رد على أي رسالة\n"
-                "2️⃣ اكتب: `ه`\n\n"
-                "سيتم إرسال همسة سرية للمستقبل فقط!",
-                parse_mode="markdown"
+        # حذف الخطأ بعد 5 ثوان
+        await context.bot.delete_message(
+            chat_id=message.chat_id,
+            message_id=error_msg.message_id
+        )
+        await context.bot.delete_message(
+            chat_id=message.chat_id,
+            message_id=message.message_id
+        )
+        return
+    
+    try:
+        original_msg = message.reply_to_message
+        sender = message.from_user
+        receiver = original_msg.from_user
+        
+        # التحقق من أن المستقبل موجود
+        if not receiver:
+            error_msg = await message.reply_text(
+                "❌ **خطأ:** لا يمكن إرسال همسة إلى قناة أو حساب محذوف!"
             )
-            # حذف رسالة الخطأ بعد 5 ثوان
-            await asyncio.sleep(5)
-            try:
-                await الخطأ.delete()
-            except Exception as e:
-                log.debug(f"خطأ في حذف الرسالة: {e}")
+            await context.bot.delete_message(
+                chat_id=message.chat_id,
+                message_id=error_msg.message_id
+            )
+            await context.bot.delete_message(
+                chat_id=message.chat_id,
+                message_id=message.message_id
+            )
             return
         
-        try:
-            الرسالة_الأصلية = رسالة.reply_to_message
-            المرسل = رسالة.from_user
-            المستقبل = الرسالة_الأصلية.from_user
-            
-            # التحقق من أن المستقبل موجود
-            if not المستقبل:
-                الخطأ = await رسالة.reply_text(
-                    "❌ **خطأ:** لا يمكن إرسال همسة إلى قناة أو حساب محذوف!"
-                )
-                await asyncio.sleep(3)
-                try:
-                    await الخطأ.delete()
-                except Exception as e:
-                    log.debug(f"خطأ في حذف الرسالة: {e}")
-                return
-            
-            # بناء نص الهمسة
-            نص_الهمسة = f"""
+        # الحصول على نص الرسالة الأصلية
+        original_text = original_msg.text or original_msg.caption or '[رسالة بدون نص]'
+        
+        # بناء نص الهمسة
+        whisper_text = f"""
 🤫 **همسة سرية جداً!**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-{الرسالة_الأصلية.text or '[رسالة بدون نص]'}
+{original_text}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️ هذه الرسالة ظهرت لك فقط!
 🔒 لا أحد آخر يراها
-👤 من: {المرسل.mention()}
+👤 من: {sender.first_name} {sender.last_name or ''}
 """
-            
-            # إرسال الهمسة كرد مباشر على الرسالة الأصلية
-            await الرسالة_الأصلية.reply_text(
-                نص_الهمسة,
-                parse_mode="markdown"
-            )
-            
-            # حذف الأمر الأصلي
-            await رسالة.delete()
-            
-            # إرسال تأكيد للمرسل
-            رسالة_التأكيد = await رسالة.reply_text(
-                "✅ **تم إرسال الهمسة!**\n"
-                f"🔒 سيراها {المستقبل.mention()} فقط"
-            )
-            
-            # حذف رسالة التأكيد بعد 3 ثوان
-            await asyncio.sleep(3)
-            try:
-                await رسالة_التأكيد.delete()
-            except Exception as e:
-                log.debug(f"خطأ في حذف الرسالة: {e}")
-            
-            log.info(f"✅ همسة سرية أُرسلت من {المرسل.id} إلى {المستقبل.id}")
-            
-        except Exception as e:
-            log.error(f"❌ خطأ في الهمسة السرية: {str(e)}")
-            رسالة_الخطأ = await رسالة.reply_text(
-                f"❌ **حدث خطأ:** `{str(e)}`"
-            )
-            await asyncio.sleep(3)
-            try:
-                await رسالة_الخطأ.delete()
-            except:
-                pass
-
-    
-    @app.on_message(filters.command("ه") & filters.private)
-    async def همسة_في_الرسائل_الخاصة(عميل: Client, رسالة: Message):
-        """معالجة أمر الهمسة في الرسائل الخاصة"""
         
-        if not رسالة.reply_to_message:
-            الرسالة = await رسالة.reply_text(
-                "ℹ️ **معلومة:**\n\n"
-                "أمر الهمسة السرية يعمل في المجموعات فقط!\n\n"
-                "في الرسائل الخاصة، كل شيء بالفعل سري 🔒"
-            )
-            await asyncio.sleep(5)
-            try:
-                await الرسالة.delete()
-            except:
-                pass
-            return
+        # إرسال الهمسة كرد على الرسالة الأصلية
+        whisper_msg = await context.bot.send_message(
+            chat_id=message.chat_id,
+            text=whisper_text,
+            reply_to_message_id=original_msg.message_id,
+            parse_mode="markdown"
+        )
+        
+        # إرسال تأكيد للمرسل
+        confirm_msg = await message.reply_text(
+            "✅ **تم إرسال الهمسة!**\n"
+            f"🔒 سيراها {receiver.first_name} فقط"
+        )
+        
+        # حذف الأمر والرسائل بعد فترة
+        import asyncio
+        await asyncio.sleep(3)
         
         try:
-            الرسالة_الأصلية = رسالة.reply_to_message
-            
-            نص_الهمسة = f"""
-🤫 **رسالة سرية:**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-{الرسالة_الأصلية.text or '[رسالة بدون نص]'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔒 رسالة خاصة جداً!
-"""
-            
-            await الرسالة_الأصلية.reply_text(
-                نص_الهمسة,
-                parse_mode="markdown"
+            await context.bot.delete_message(
+                chat_id=message.chat_id,
+                message_id=confirm_msg.message_id
             )
-            
-            await رسالة.delete()
-            
-        except Exception as e:
-            log.error(f"❌ خطأ: {str(e)}")
+        except:
+            pass
+        
+        try:
+            await context.bot.delete_message(
+                chat_id=message.chat_id,
+                message_id=message.message_id
+            )
+        except:
+            pass
+        
+        log.info(f"✅ همسة سرية أُرسلت من {sender.id} إلى {receiver.id}")
+        
+    except Exception as e:
+        log.error(f"❌ خطأ في الهمسة السرية: {str(e)}")
+        try:
+            error_msg = await message.reply_text(
+                f"❌ **حدث خطأ:** `{str(e)}`"
+            )
+            import asyncio
+            await asyncio.sleep(3)
+            await context.bot.delete_message(
+                chat_id=message.chat_id,
+                message_id=error_msg.message_id
+            )
+        except:
+            pass
+
+
+def setup(app: Application) -> None:
+    """
+    تثبيت وحدة الهمسة السرية
+    
+    هذه الدالة يتم استدعاؤها تلقائياً من قبل نظام Rose
+    """
+    
+    # تسجيل أمر الهمسة
+    app.add_handler(CommandHandler("ه", hemsa))
     
     log.info("✅ تم تحميل وحدة الهمسة السرية بنجاح!")
-    return True
