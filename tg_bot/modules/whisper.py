@@ -24,7 +24,6 @@ def whisper_cmd(bot, update):
 
     LOGGER.info(f"أمر همسة من {user.id} في المجموعة {chat.id}")
 
-    # يجب الرد على شخص
     if not message.reply_to_message:
         message.reply_text("❌ يجب الرد على رسالة الشخص الذي تريد إرسال الهمسة له.")
         return
@@ -102,7 +101,6 @@ def whisper_private_start(bot, update):
                     message.reply_text("❌ الهمسة لا يمكن أن تكون فارغة.")
                     return
 
-                # إنشاء معرف نهائي
                 final_id = f"final_{int(time.time())}_{user.id}"
                 completed_whispers[final_id] = {
                     "from_user": user.id,
@@ -113,7 +111,6 @@ def whisper_private_start(bot, update):
                     "chat_id": data["chat_id"]
                 }
 
-                # زر العرض في المجموعة
                 keyboard = InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔓 عرض الهمسة", callback_data=f"show_{final_id}")
                 ]])
@@ -136,7 +133,6 @@ def whisper_private_start(bot, update):
                 found = True
                 break
 
-        # حذف العمليات المؤقتة المنتهية
         for pid in to_delete:
             if pid in waiting_whispers:
                 del waiting_whispers[pid]
@@ -181,7 +177,6 @@ def whisper_show_button(bot, update):
             chat_id=whisper["chat_id"],
             text=f"✅ المستخدم {whisper['to_name']} استلم الهمسة."
         )
-        # تنظيف الذاكرة
         del completed_whispers[final_id]
         if data in button_map:
             del button_map[data]
@@ -201,8 +196,8 @@ def start_private(bot, update):
 
 
 # إضافة المعالجات
-dispatcher.add_handler(CommandHandler("ه", whisper_cmd, filters=Filters.group))  # الأمر /ه
-dispatcher.add_handler(MessageHandler(Filters.regex(r'^ه$') & Filters.group, whisper_cmd))  # الأمر ه بدون /
+dispatcher.add_handler(CommandHandler("ه", whisper_cmd, filters=Filters.group))
+dispatcher.add_handler(MessageHandler(Filters.regex(r'^ه$') & Filters.group, whisper_cmd))
 dispatcher.add_handler(CommandHandler("start", start_private))
 dispatcher.add_handler(MessageHandler(Filters.text & Filters.private, whisper_private_start))
 dispatcher.add_handler(CallbackQueryHandler(whisper_show_button, pattern=r"^show_"))
