@@ -1,159 +1,136 @@
-"""
-🤫 وحدة الهمسة السرية لبوت Rose
-متوافقة مع نظام Rose الفعلي
-
-الأمر: ه
-"""
-
+# tg_bot/modules/whisper.py
+import time
 import logging
-from telegram import Update
-from telegram.ext import Application, ContextTypes, CommandHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler, run_async
+from tg_bot import dispatcher
 
-log = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
-__MODULE__ = "🤫 الهمسة السرية"
-__HELP__ = """
-**أمر الهمسة السرية (ه):**
+__mod_name__ = "الهمسات"
 
-الاستخدام:
-1️⃣ رد على أي رسالة
-2️⃣ اكتب: /ه
-3️⃣ سيتم إرسال همسة سرية
-
-✨ المميزات:
-✅ لا يراها سوى المستقبل
-✅ يتم حذف الأمر تلقائياً
-✅ رسالة سرية وآمنة
-✅ تعمل في كل مكان
-"""
+# تخزين الهمسات في الذاكرة (يمكن استبدالها بقاعدة بيانات لاحقاً)
+whispers = {}
+button_map = {}
 
 
-async def hemsa(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    أمر الهمسة السرية
-    يحول الرسالة المرد عليها إلى همسة سرية
-    """
-    
-    message = update.message
-    
-    # التحقق من أن الأمر رد على رسالة
+@run_async
+def whisper_cmd(bot, update):
+    """معالج الأمر 'همسة'"""
+    message = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+
+    LOGGER.info(f"تم استدعاء whisper_cmd في المجموعة {chat.id} بواسطة {user.id}")
+
     if not message.reply_to_message:
-        error_msg = await message.reply_text(
-            "❌ **استخدام خاطئ!**\n\n"
-            "طريقة الاستخدام:\n"
-            "1️⃣ رد على أي رسالة\n"
-            "2️⃣ اكتب: `/ه`\n\n"
-            "سيتم إرسال همسة سرية للمستقبل فقط!",
-            parse_mode="markdown"
-        )
-        
-        # حذف الخطأ بعد 5 ثوان
-        await context.bot.delete_message(
-            chat_id=message.chat_id,
-            message_id=error_msg.message_id
-        )
-        await context.bot.delete_message(
-            chat_id=message.chat_id,
-            message_id=message.message_id
-        )
+        message.reply_text("❌ يجب الرد على رسالة الشخص الذي تريد إرسال الهمسة له.")
         return
-    
+
+    target = message.reply_to_message.from_user
+
+    if target.id == user.id:
+        message.reply_text("❌ لا يمكنك إرسال همسة لنفسك.")
+        return
+
+    # استخراج نص الهمسة بعد الأمر
+    text = message.text
+    if text.startswith('همسة'):
+        whisper_text = text[5:].strip()
+    elif text.startswith('/whisper'):
+        whisper_text = text[8:].strip()
+    else:
+        message.reply_text("❌ استخدم: همسة <رسالتك> مع الرد على شخص.")
+        return
+
+    if not whisper_text:
+        message.reply_text("❌ يجب كتابة الهمسة بعد الأمر.\nمثال: همسة مرحبا")
+        return
+
+    # إنشاء معرف فريد
+    whisper_id = f"{chat.id}_{user.id}_{int(time.time())}"
+
+    whispers[whisper_id] = {
+        'from_user': user.id,
+        'to_user': target.id,
+        'message': whisper_text,
+        'chat_id': chat.id,
+        'from_name': user.first_name,
+        'to_name': target.first_name
+    }
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🔓 عرض الهمسة", callback_data=f"whisper_{whisper_id}")
+    ]])
+
+    button_map[f"whisper_{whisper_id}"] = whisper_id
+
+    notification = (
+        f"🔔 **همسة سرية** 🔔\n\n"
+        f"المستخدم {user.first_name} أرسل لك همسة يا {target.first_name}!\n"
+        f"اضغط على الزر أدناه لعرضها 👇"
+    )
+    message.reply_text(notification, reply_markup=keyboard)
+    LOGGER.info(f"تم إنشاء همسة {whisper_id}")
+
+
+@run_async
+def whisper_button(bot, update):
+    query = update.callback_query
+    user = update.effective_user
+    data = query.data
+
+    if not data.startswith("whisper_"):
+        return
+
+    whisper_id = button_map.get(data)
+    if not whisper_id:
+        query.answer("❌ هذه الهمسة غير موجودة أو انتهت صلاحيتها.", show_alert=True)
+        query.message.delete()
+        return
+
+    w = whispers.get(whisper_id)
+    if not w:
+        query.answer("❌ هذه الهمسة غير موجودة.", show_alert=True)
+        query.message.delete()
+        return
+
+    if user.id != w['to_user']:
+        query.answer("❌ هذه الهمسة ليست لك!", show_alert=True)
+        return
+
     try:
-        original_msg = message.reply_to_message
-        sender = message.from_user
-        receiver = original_msg.from_user
-        
-        # التحقق من أن المستقبل موجود
-        if not receiver:
-            error_msg = await message.reply_text(
-                "❌ **خطأ:** لا يمكن إرسال همسة إلى قناة أو حساب محذوف!"
-            )
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
-                message_id=error_msg.message_id
-            )
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
-                message_id=message.message_id
-            )
-            return
-        
-        # الحصول على نص الرسالة الأصلية
-        original_text = original_msg.text or original_msg.caption or '[رسالة بدون نص]'
-        
-        # بناء نص الهمسة
-        whisper_text = f"""
-🤫 **همسة سرية جداً!**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-{original_text}
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️ هذه الرسالة ظهرت لك فقط!
-🔒 لا أحد آخر يراها
-👤 من: {sender.first_name} {sender.last_name or ''}
-"""
-        
-        # إرسال الهمسة كرد على الرسالة الأصلية
-        whisper_msg = await context.bot.send_message(
-            chat_id=message.chat_id,
-            text=whisper_text,
-            reply_to_message_id=original_msg.message_id,
-            parse_mode="markdown"
+        bot.send_message(
+            chat_id=user.id,
+            text=f"🔐 **همسة سرية** 🔐\n\nمن: {w['from_name']}\nالرسالة: {w['message']}",
+            parse_mode='Markdown'
         )
-        
-        # إرسال تأكيد للمرسل
-        confirm_msg = await message.reply_text(
-            "✅ **تم إرسال الهمسة!**\n"
-            f"🔒 سيراها {receiver.first_name} فقط"
+        query.answer("✅ تم إرسال الهمسة لك في الخاص!", show_alert=False)
+        query.message.delete()
+        bot.send_message(
+            chat_id=w['chat_id'],
+            text=f"✅ المستخدم {w['to_name']} استلم الهمسة بنجاح."
         )
-        
-        # حذف الأمر والرسائل بعد فترة
-        import asyncio
-        await asyncio.sleep(3)
-        
-        try:
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
-                message_id=confirm_msg.message_id
-            )
-        except:
-            pass
-        
-        try:
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
-                message_id=message.message_id
-            )
-        except:
-            pass
-        
-        log.info(f"✅ همسة سرية أُرسلت من {sender.id} إلى {receiver.id}")
-        
+        # تنظيف الذاكرة
+        del whispers[whisper_id]
+        del button_map[data]
     except Exception as e:
-        log.error(f"❌ خطأ في الهمسة السرية: {str(e)}")
-        try:
-            error_msg = await message.reply_text(
-                f"❌ **حدث خطأ:** `{str(e)}`"
-            )
-            import asyncio
-            await asyncio.sleep(3)
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
-                message_id=error_msg.message_id
-            )
-        except:
-            pass
+        LOGGER.error(f"فشل إرسال الهمسة: {e}")
+        query.answer("❌ فشل إرسال الهمسة. تأكد من أنك بدأت محادثة مع البوت.", show_alert=True)
 
 
-def setup(app: Application) -> None:
-    """
-    تثبيت وحدة الهمسة السرية
-    
-    هذه الدالة يتم استدعاؤها تلقائياً من قبل نظام Rose
-    """
-    
-    # تسجيل أمر الهمسة
-    app.add_handler(CommandHandler("ه", hemsa))
-    
-    log.info("✅ تم تحميل وحدة الهمسة السرية بنجاح!")
+@run_async
+def start_private(bot, update):
+    if update.effective_chat.type == "private":
+        update.effective_message.reply_text(
+            "👋 مرحباً! هذا البوت يدعم إرسال الهمسات.\n"
+            "لاستخدام الميزة، أضفني إلى مجموعة واكتب:\n"
+            "`همسة رسالتك` مع الرد على شخص."
+        )
+
+
+# إضافة المعالجات
+dispatcher.add_handler(MessageHandler(Filters.regex(r'^همسة\s+.*') & Filters.group, whisper_cmd))
+dispatcher.add_handler(CommandHandler("whisper", whisper_cmd, filters=Filters.group))
+dispatcher.add_handler(CallbackQueryHandler(whisper_button, pattern=r"whisper_"))
+dispatcher.add_handler(CommandHandler("start", start_private))
