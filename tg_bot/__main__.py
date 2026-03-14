@@ -477,7 +477,9 @@ def main():
     donate_handler = CommandHandler("donate", donate)
     migrate_handler = MessageHandler(Filters.status_update.migrate, migrate_chats)
 
-    my_chat_member_handler = MessageHandler(Filters.status_update.my_chat_member, on_my_chat_member)
+    # ... باقي المعالجات
+my_chat_member_handler = MessageHandler(Filters.status_update, on_my_chat_member)
+dispatcher.add_handler(my_chat_member_handler)
 
     # dispatcher.add_handler(test_handler)
     dispatcher.add_handler(start_handler)
