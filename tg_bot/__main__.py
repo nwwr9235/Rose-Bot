@@ -13,13 +13,13 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-import telegram.error as tel_err
-Unauthorized = tel_err.Unauthorized
-BadRequest = tel_err.BadRequest
-TimedOut = tel_err.TimedOut
-NetworkError = tel_err.NetworkError
-ChatMigrated = tel_err.ChatMigrated
-TelegramError = tel_err.TelegramError
+from telegram.error import (
+    Unauthorized,
+    BadRequest,
+    TimedOut,
+    NetworkError,
+    ChatMigrated,
+    TelegramError,
 )
 
 from tg_bot import TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, ALLOW_EXCL
@@ -340,12 +340,10 @@ async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             module_name = mod_match.group(2)
             chat = await context.bot.get_chat(chat_id)
             module = CHAT_SETTINGS[module_name]
-            # نفترض أن __chat_settings__ أصبحت غير متزامنة
+            # محاولة استدعاء __chat_settings__ (قد تكون متزامنة أو غير متزامنة)
             if hasattr(module.__chat_settings__, "__call__") and not hasattr(module.__chat_settings__, "func"):
-                # إذا كانت دالة عادية، نفترض أنها غير متزامنة
                 settings_text = await module.__chat_settings__(chat_id, update.effective_user.id)
             else:
-                # إذا كانت متزامنة، نسميها مباشرة
                 settings_text = module.__chat_settings__(chat_id, update.effective_user.id)
 
             text = f"*إعدادات مجموعة {chat.title} لوحدة {module.__mod_name__}*:\n\n{settings_text}"
@@ -479,24 +477,6 @@ async def migrate_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LOGGER.info("Migration successful.")
 
 
-async def kcfrsct_fnc(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دالة خاصة لمعالجة أزرار الفلاتر (غير واضحة ولكنها موجودة)."""
-    query = update.callback_query
-    await query.answer()
-    _match = re.match(r"rsct_(.*)_33801", query.data)
-    if _match:
-        try:
-            from tg_bot.modules.sql.cust_filters_sql import get_btn_with_di
-            _soqka = get_btn_with_di(int(_match.group(1)))
-            await query.answer(
-                text=_soqka.url.replace("\\n", "\n").replace("\\t", "\t"),
-                show_alert=True,
-            )
-        except Exception as e:
-            LOGGER.exception(e)
-            await query.answer()
-
-
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج الأخطاء العام."""
     LOGGER.error("Exception while handling an update:", exc_info=context.error)
@@ -515,7 +495,6 @@ def main() -> None:
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CallbackQueryHandler(help_button, pattern=r"^help_"))
     application.add_handler(CallbackQueryHandler(settings_button, pattern=r"^stngs_"))
-    application.add_handler(CallbackQueryHandler(kcfrsct_fnc, pattern=r"^rsct_"))
     application.add_handler(MessageHandler(filters.StatusUpdate.MIGRATE, migrate_chats))
 
     # إضافة معالج الأخطاء
