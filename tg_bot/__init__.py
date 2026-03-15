@@ -67,6 +67,10 @@ if ENV:
     # إضافة WEBHOOK
     WEBHOOK = bool(strtobool(os.environ.get("WEBHOOK", "False")))
 
+    # إضافة LOAD و NO_LOAD
+    LOAD = os.environ.get("LOAD", "").split()
+    NO_LOAD = os.environ.get("NO_LOAD", "").split()
+
     try:
         BAN_STICKER = os.environ.get("BAN_STICKER", "CAADBQADfQADv7rGI0wxx1ORU7UzAg")
     except:
@@ -105,6 +109,16 @@ else:
         WEBHOOK = Config.WEBHOOK
     except AttributeError:
         WEBHOOK = False
+
+    # محاولة قراءة LOAD و NO_LOAD من config، مع قيم افتراضية قوائم فارغة
+    try:
+        LOAD = Config.LOAD
+    except AttributeError:
+        LOAD = []
+    try:
+        NO_LOAD = Config.NO_LOAD
+    except AttributeError:
+        NO_LOAD = []
 
     BAN_STICKER = Config.BAN_STICKER
     ALLOW_EXCL = Config.ALLOW_EXCL
@@ -147,3 +161,7 @@ LOGGER.info("Successfully loaded config!")
 LOGGER.info(f"Python version: {sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}")
 LOGGER.info(f"python-telegram-bot version: {pver}")
 LOGGER.info(f"Users: sudo - {len(SUDO_USERS)} | support - {len(SUPPORT_USERS)} | whitelist - {len(WHITELIST_USERS)}")
+if LOAD:
+    LOGGER.info(f"Loading modules: {LOAD}")
+if NO_LOAD:
+    LOGGER.info(f"Not loading modules: {NO_LOAD}")
