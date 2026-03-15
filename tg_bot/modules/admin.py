@@ -4,7 +4,7 @@ from typing import Optional, List
 from telegram import Message, Chat, Update, Bot, User
 from telegram import ParseMode
 from telegram.error import BadRequest
-from telegram.ext import CommandHandler, Filters, RegexHandler
+from telegram.ext import CommandHandler, Filters, RegexHandler, MessageHandler
 from telegram.ext.dispatcher import run_async
 from telegram.utils.helpers import escape_markdown, mention_html
 
@@ -16,6 +16,107 @@ from tg_bot.modules.helper_funcs.extraction import extract_user
 from tg_bot.modules.helper_funcs.string_handling import markdown_parser
 from tg_bot.modules.log_channel import loggable
 
+# ------------------- دوال مساعدة للأوامر العربية -------------------
+def extract_args_from_text(text: str, keyword: str) -> List[str]:
+    """استخراج المعاملات بعد الكلمة المفتاحية"""
+    if text.startswith(keyword):
+        rest = text[len(keyword):].strip()
+        return rest.split() if rest else []
+    return []
+
+# =================== الأوامر العربية الجديدة ===================
+
+# رفع مشرف
+@run_async
+@bot_admin
+@can_promote
+@user_admin
+@loggable
+def promote_arabic(bot: Bot, update: Update) -> str:
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "رفع")
+    # استدعاء الدالة الأصلية مع args
+    return promote(bot, update, args)
+
+# تنزيل مشرف
+@run_async
+@bot_admin
+@can_promote
+@user_admin
+@loggable
+def demote_arabic(bot: Bot, update: Update) -> str:
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "تنزيل")
+    return demote(bot, update, args)
+
+# تثبيت رسالة
+@run_async
+@bot_admin
+@can_pin
+@user_admin
+@loggable
+def pin_arabic(bot: Bot, update: Update) -> str:
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "تثبيت")
+    return pin(bot, update, args)
+
+# فك التثبيت
+@run_async
+@bot_admin
+@can_pin
+@user_admin
+@loggable
+def unpin_arabic(bot: Bot, update: Update) -> str:
+    return unpin(bot, update)
+
+# دعوة (إنشاء رابط دعوة)
+@run_async
+@bot_admin
+@user_admin
+def invite_arabic(bot: Bot, update: Update):
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "دعوة")
+    return invite(bot, update)
+
+# رابط عام (عرض الرابط المحفوظ)
+@run_async
+def link_public_arabic(bot: Bot, update: Update):
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "رابط عام")
+    return link_public(bot, update)
+
+# تعيين رابط
+@run_async
+@user_admin
+def set_link_arabic(bot: Bot, update: Update):
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "تعيين الرابط")
+    return set_link(bot, update)
+
+# مسح الرابط
+@run_async
+@user_admin
+def clear_link_arabic(bot: Bot, update: Update):
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "مسح الرابط")
+    return clear_link(bot, update)
+
+# قائمة الإشراف (عرض المشرفين)
+@run_async
+def adminlist_arabic(bot: Bot, update: Update):
+    message = update.effective_message
+    text = message.text
+    args = extract_args_from_text(text, "قائمة الإشراف")
+    return adminlist(bot, update)
+
+# =================== الدوال الأصلية (معدلة الرسائل) ===================
 
 @run_async
 @bot_admin
@@ -30,19 +131,19 @@ def promote(bot: Bot, update: Update, args: List[str]) -> str:
 
     user_id = extract_user(message, args)
     if not user_id:
-        message.reply_text("You don't seem to be referring to a user.")
+        message.reply_text("لم تحدد أي مستخدم للإشارة إليه.")
         return ""
 
     user_member = chat.get_member(user_id)
     if user_member.status == 'administrator' or user_member.status == 'creator':
-        message.reply_text("How am I meant to promote someone that's already an admin?")
+        message.reply_text("كيف يمكنني رفع شخص هو بالفعل مشرف؟")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I can't promote myself! Get an admin to do it for me.")
+        message.reply_text("لا أستطيع رفع نفسي! اطلب من أحد المشرفين فعل ذلك.")
         return ""
 
-    # set same perms as bot - bot can't assign higher perms than itself!
+    # تعيين نفس صلاحيات البوت - لا يمكن للبوت منح صلاحيات أعلى من صلاحياته
     bot_member = chat.get_member(bot.id)
 
     bot.promoteChatMember(chat_id, user_id,
@@ -50,16 +151,15 @@ def promote(bot: Bot, update: Update, args: List[str]) -> str:
                           can_post_messages=bot_member.can_post_messages,
                           can_edit_messages=bot_member.can_edit_messages,
                           can_delete_messages=bot_member.can_delete_messages,
-                          # can_invite_users=bot_member.can_invite_users,
                           can_restrict_members=bot_member.can_restrict_members,
                           can_pin_messages=bot_member.can_pin_messages,
                           can_promote_members=bot_member.can_promote_members)
 
-    message.reply_text("Successfully promoted!")
+    message.reply_text("تم الترقية بنجاح!")
     return "<b>{}:</b>" \
-           "\n#PROMOTED" \
-           "\n<b>Admin:</b> {}" \
-           "\n<b>User:</b> {}".format(html.escape(chat.title),
+           "\n#رفع" \
+           "\n<b>المشرف:</b> {}" \
+           "\n<b>المستخدم:</b> {}".format(html.escape(chat.title),
                                       mention_html(user.id, user.first_name),
                                       mention_html(user_member.user.id, user_member.user.first_name))
 
@@ -76,20 +176,20 @@ def demote(bot: Bot, update: Update, args: List[str]) -> str:
 
     user_id = extract_user(message, args)
     if not user_id:
-        message.reply_text("You don't seem to be referring to a user.")
+        message.reply_text("لم تحدد أي مستخدم للإشارة إليه.")
         return ""
 
     user_member = chat.get_member(user_id)
     if user_member.status == 'creator':
-        message.reply_text("This person CREATED the chat, how would I demote them?")
+        message.reply_text("هذا الشخص هو منشئ المجموعة، كيف يمكنني تنزيله؟")
         return ""
 
     if not user_member.status == 'administrator':
-        message.reply_text("Can't demote what wasn't promoted!")
+        message.reply_text("لا يمكن تنزيل من لم يتم رفعه!")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I can't demote myself! Get an admin to do it for me.")
+        message.reply_text("لا أستطيع تنزيل نفسي! اطلب من أحد المشرفين فعل ذلك.")
         return ""
 
     try:
@@ -102,17 +202,16 @@ def demote(bot: Bot, update: Update, args: List[str]) -> str:
                               can_restrict_members=False,
                               can_pin_messages=False,
                               can_promote_members=False)
-        message.reply_text("Successfully demoted!")
+        message.reply_text("تم التنزيل بنجاح!")
         return "<b>{}:</b>" \
-               "\n#DEMOTED" \
-               "\n<b>Admin:</b> {}" \
-               "\n<b>User:</b> {}".format(html.escape(chat.title),
+               "\n#تنزيل" \
+               "\n<b>المشرف:</b> {}" \
+               "\n<b>المستخدم:</b> {}".format(html.escape(chat.title),
                                           mention_html(user.id, user.first_name),
                                           mention_html(user_member.user.id, user_member.user.first_name))
 
     except BadRequest:
-        message.reply_text("Could not demote. I might not be admin, or the admin status was appointed by another "
-                           "user, so I can't act upon them!")
+        message.reply_text("لم أتمكن من التنزيل. قد لا أكون مشرفًا، أو أن صلاحية الإشراف مُنحت من قبل مستخدم آخر، لذا لا يمكنني التصرف تجاههم!")
         return ""
 
 
@@ -142,8 +241,8 @@ def pin(bot: Bot, update: Update, args: List[str]) -> str:
             else:
                 raise
         return "<b>{}:</b>" \
-               "\n#PINNED" \
-               "\n<b>Admin:</b> {}".format(html.escape(chat.title), mention_html(user.id, user.first_name))
+               "\n#تثبيت" \
+               "\n<b>المشرف:</b> {}".format(html.escape(chat.title), mention_html(user.id, user.first_name))
 
     return ""
 
@@ -166,16 +265,17 @@ def unpin(bot: Bot, update: Update) -> str:
             raise
 
     return "<b>{}:</b>" \
-           "\n#UNPINNED" \
-           "\n<b>Admin:</b> {}".format(html.escape(chat.title),
+           "\n#فك_تثبيت" \
+           "\n<b>المشرف:</b> {}".format(html.escape(chat.title),
                                        mention_html(user.id, user.first_name))
+
 
 @run_async
 @bot_admin
 @user_admin
 def invite(bot: Bot, update: Update):
     chat = update.effective_chat  # type: Optional[Chat]
-    message = update.effective_message #type: Optional[Messages]
+    message = update.effective_message  # type: Optional[Message]
     
     if chat.username:
         update.effective_message.reply_text("@{}".format(chat.username))
@@ -183,31 +283,33 @@ def invite(bot: Bot, update: Update):
         bot_member = chat.get_member(bot.id)
         if bot_member.can_invite_users:
             invitelink = bot.exportChatInviteLink(chat.id)
-            linktext = "Successfully generated new link for *{}:*".format(chat.title)
+            linktext = "تم إنشاء رابط جديد لـ *{}:*".format(chat.title)
             link = "`{}`".format(invitelink)
             message.reply_text(linktext, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
             message.reply_text(link, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         else:
-            message.reply_text("I don't have access to the invite link, try changing my permissions!")
+            message.reply_text("ليس لدي صلاحية الوصول إلى رابط الدعوة، حاول تغيير صلاحياتي!")
     else:
-        message.reply_text("I can only give you invite links for supergroups and channels, sorry!")
+        message.reply_text("يمكنني إعطاء روابط الدعوة فقط للمجموعات الفائقة والقنوات، آسف!")
+
 
 @run_async
 def link_public(bot: Bot, update: Update):
     chat = update.effective_chat  # type: Optional[Chat]
-    message = update.effective_message #type: Optional[Messages]
+    message = update.effective_message  # type: Optional[Message]
     chat_id = update.effective_chat.id
     invitelink = sql.get_link(chat_id)
     
     if chat.type == chat.SUPERGROUP or chat.type == chat.CHANNEL:
         if invitelink:
-            message.reply_text("Link of *{}*:\n`{}`".format(chat.title, invitelink), parse_mode=ParseMode.MARKDOWN)
+            message.reply_text("رابط *{}*:\n`{}`".format(chat.title, invitelink), parse_mode=ParseMode.MARKDOWN)
         else:
-            message.reply_text("The admins of *{}* haven't set link."
-                               " \nLink can be set by following: `/setlink` and get link of chat "
-                               "using /invitelink, paste the link after `/setlink` append.".format(chat.title), parse_mode=ParseMode.MARKDOWN)
+            message.reply_text("مشرفو *{}* لم يحددوا رابطًا بعد."
+                               " \nيمكن تعيين الرابط عبر: `/setlink` ثم الحصول على رابط المجموعة "
+                               "باستخدام /invitelink، والصق الرابط بعد الأمر `/setlink`.".format(chat.title), parse_mode=ParseMode.MARKDOWN)
     else:
-        message.reply_text("I can only can save links for supergroups and channels, sorry!")
+        message.reply_text("يمكنني حفظ الروابط فقط للمجموعات الفائقة والقنوات، آسف!")
+
 
 @run_async
 @user_admin
@@ -220,9 +322,10 @@ def set_link(bot: Bot, update: Update):
     
     if len(args) == 2:
         links_text = args[1]
-
         sql.set_link(chat_id, links_text)
-        msg.reply_text("The link has been set for {}!\nRetrieve link by #link".format((chat.title)))
+        msg.reply_text("تم تعيين الرابط لـ {}!\nاسترجع الرابط باستخدام #link".format(chat.title))
+    else:
+        msg.reply_text("الرجاء إرسال الرابط مع الأمر، مثال: /setlink https://t.me/joinchat/...")
 
 
 @run_async
@@ -230,13 +333,13 @@ def set_link(bot: Bot, update: Update):
 def clear_link(bot: Bot, update: Update):
     chat_id = update.effective_chat.id
     sql.set_link(chat_id, "")
-    update.effective_message.reply_text("Successfully cleared link!")
+    update.effective_message.reply_text("تم مسح الرابط بنجاح!")
 
 
 @run_async
 def adminlist(bot: Bot, update: Update):
     administrators = update.effective_chat.get_administrators()
-    text = "Admins in *{}*:".format(update.effective_chat.title or "this chat")
+    text = "المشرفون في *{}*:".format(update.effective_chat.title or "هذه المجموعة")
     for admin in administrators:
         user = admin.user
         name = "[{}](tg://user?id={})".format(user.first_name + (user.last_name or ""), user.id)
@@ -246,42 +349,57 @@ def adminlist(bot: Bot, update: Update):
 
     update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
+
 def __stats__():
-    return "{} chats have links set.".format(sql.num_chats())
+    return "{} مجموعة لديها روابط محفوظة.".format(sql.num_chats())
+
 
 def __chat_settings__(chat_id, user_id):
-    return "You are *admin*: `{}`".format(
+    return "أنت *مشرف*: `{}`".format(
         dispatcher.bot.get_chat_member(chat_id, user_id).status in ("administrator", "creator"))
 
 
+# =================== نص المساعدة العربي ===================
 __help__ = """
-Lazy to promote or demote someone for admins? Want to see basic information about chat? \
-All stuff about chatroom such as admin lists, pinning or grabbing an invite link can be \
-done easily using the bot.
+مرحبًا بك في أوامر الإشراف:
 
- - /adminlist: list of admins and members in the chat
- - /staff: same as /adminlist
- - /link: get the group link for this chat.
- - #link: same as /link
+- /adminlist أو /staff: عرض قائمة المشرفين في المجموعة.
+- /link: الحصول على رابط المجموعة (إذا تم حفظه مسبقًا).
+- #link: نفس الأمر السابق.
 
-*Admin only:*
- - /pin: silently pins the message replied to - add 'loud' or 'notify' to give notifies to users.
- - /unpin: unpins the currently pinned message.
- - /invitelink: generates new invite link.
- - /setlink <your group link here>: set the group link for this chat.
- - /clearlink: clear the group link for this chat.
- - /promote: promotes the user replied to
- - /demote: demotes the user replied to
- 
- An example of set a link:
-`/setlink https://t.me/joinchat/HwiIk1RADK5gRMr9FBdOrwtae`
+*أوامر خاصة بالمشرفين:*
+- /pin: تثبيت الرسالة التي تم الرد عليها. يمكن إضافة 'notify' أو 'loud' لإرسال إشعار للأعضاء.
+- /unpin: فك تثبيت الرسالة المثبتة حالياً.
+- /invitelink: إنشاء رابط دعوة جديد للمجموعة.
+- /setlink <الرابط>: حفظ رابط المجموعة (للاستخدام مع /link).
+- /clearlink: مسح الرابط المحفوظ للمجموعة.
+- /promote: رفع العضو الذي تم الرد عليه إلى مشرف.
+- /demote: تنزيل العضو الذي تم الرد عليه من الإشراف.
 
-An example of promoting someone to admins:
-`/promote @username`; this promotes a user to admins.
+**الأوامر العربية (يمكنك كتابتها مباشرة بدون شرطة):**
+- `رفع` (بالرد على مستخدم) ← رفعه مشرفًا.
+- `تنزيل` (بالرد على مستخدم) ← تنزيله من الإشراف.
+- `تثبيت` (بالرد على رسالة) ← تثبيت الرسالة.
+- `فك التثبيت` ← إلغاء تثبيت الرسالة المثبتة.
+- `دعوة` ← إنشاء رابط دعوة.
+- `رابط عام` ← عرض رابط المجموعة المحفوظ.
+- `تعيين الرابط <الرابط>` ← حفظ رابط المجموعة.
+- `مسح الرابط` ← حذف الرابط المحفوظ.
+- `قائمة الإشراف` ← عرض المشرفين.
+
+مثال لتعيين رابط:
+`/setlink https://t.me/joinchat/...`
+أو بالعربية: `تعيين الرابط https://t.me/joinchat/...`
+
+مثال لرفع مشرف:
+`/promote @username`
+أو بالرد على المستخدم وكتابة: `رفع`
 """
 
-__mod_name__ = "Admin"
+__mod_name__ = "الإشراف"
 
+# =================== تسجيل المعالجات ===================
+# المعالجات الأصلية
 PIN_HANDLER = CommandHandler("pin", pin, pass_args=True, filters=Filters.group)
 UNPIN_HANDLER = CommandHandler("unpin", unpin, filters=Filters.group)
 LINK_HANDLER = DisableAbleCommandHandler("link", link_public)
@@ -293,6 +411,18 @@ PROMOTE_HANDLER = CommandHandler("promote", promote, pass_args=True, filters=Fil
 DEMOTE_HANDLER = CommandHandler("demote", demote, pass_args=True, filters=Filters.group)
 ADMINLIST_HANDLER = DisableAbleCommandHandler(["adminlist", "staff"], adminlist, filters=Filters.group)
 
+# المعالجات العربية الجديدة
+PROMOTE_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(رفع)\s*(.*)') & Filters.group, promote_arabic)
+DEMOTE_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(تنزيل)\s*(.*)') & Filters.group, demote_arabic)
+PIN_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(تثبيت)\s*(.*)') & Filters.group, pin_arabic)
+UNPIN_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(فك التثبيت)$') & Filters.group, unpin_arabic)
+INVITE_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(دعوة)$') & Filters.group, invite_arabic)
+LINK_PUBLIC_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(رابط عام)$') & Filters.group, link_public_arabic)
+SET_LINK_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(تعيين الرابط)\s+(.+)') & Filters.group, set_link_arabic)
+CLEAR_LINK_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(مسح الرابط)$') & Filters.group, clear_link_arabic)
+ADMINLIST_ARABIC_HANDLER = MessageHandler(Filters.regex(r'^(قائمة الإشراف)$') & Filters.group, adminlist_arabic)
+
+# إضافة جميع المعالجات إلى dispatcher
 dispatcher.add_handler(PIN_HANDLER)
 dispatcher.add_handler(UNPIN_HANDLER)
 dispatcher.add_handler(INVITE_HANDLER)
@@ -303,3 +433,14 @@ dispatcher.add_handler(HASH_LINK_HANDLER)
 dispatcher.add_handler(PROMOTE_HANDLER)
 dispatcher.add_handler(DEMOTE_HANDLER)
 dispatcher.add_handler(ADMINLIST_HANDLER)
+
+# إضافة المعالجات العربية
+dispatcher.add_handler(PROMOTE_ARABIC_HANDLER)
+dispatcher.add_handler(DEMOTE_ARABIC_HANDLER)
+dispatcher.add_handler(PIN_ARABIC_HANDLER)
+dispatcher.add_handler(UNPIN_ARABIC_HANDLER)
+dispatcher.add_handler(INVITE_ARABIC_HANDLER)
+dispatcher.add_handler(LINK_PUBLIC_ARABIC_HANDLER)
+dispatcher.add_handler(SET_LINK_ARABIC_HANDLER)
+dispatcher.add_handler(CLEAR_LINK_ARABIC_HANDLER)
+dispatcher.add_handler(ADMINLIST_ARABIC_HANDLER)
