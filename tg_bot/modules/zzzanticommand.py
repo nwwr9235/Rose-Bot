@@ -1,4 +1,6 @@
 import html
+import json
+
 from typing import Optional, List
 
 import requests
@@ -18,86 +20,60 @@ from tg_bot.modules.log_channel import loggable
 @user_admin
 @loggable
 def rem_cmds(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat
-    user = update.effective_user
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
 
     if not args:
         del_pref = sql.get_cmd_pref(chat.id)
         if del_pref:
-            update.effective_message.reply_text("يجب أن أحذف رسائل `@bluetextbot` الآن.")
+            update.effective_message.reply_text("I should be deleting `@bluetextbot` messages now.")
         else:
-            update.effective_message.reply_text("أنا لا أحذف رسائل `@bluetextbot` حالياً!")
+            update.effective_message.reply_text("I'm currently not deleting `@bluetextbot` messages!")
         return ""
 
     if args[0].lower() in ("on", "yes"):
         sql.set_cmd_joined(str(chat.id), True)
-        update.effective_message.reply_text("سأحاول حذف رسائل `@bluetextbot`!")
+        update.effective_message.reply_text("I'll try to delete `@bluetextbot` messages!")
         return "<b>{}:</b>" \
-               "\n#مكافحة_الأمر" \
-               "\n<b>المشرف:</b> {}" \
-               "\nقام بتشغيل AntiCommandBot إلى <code>ON</code>.".format(html.escape(chat.title),
+               "\n#ANTI_COMMAND" \
+               "\n<b>Admin:</b> {}" \
+               "\nHas toggled @AntiCommandBot to <code>ON</code>.".format(html.escape(chat.title),
                                                                          mention_html(user.id, user.first_name))
     elif args[0].lower() in ("off", "no"):
         sql.set_cmd_joined(str(chat.id), False)
-        update.effective_message.reply_text("لن أحذف رسائل `@bluetextbot`.")
+        update.effective_message.reply_text("I won't delete `@bluetextbot`  messages.")
         return "<b>{}:</b>" \
-               "\n#مكافحة_الأمر" \
-               "\n<b>المشرف:</b> {}" \
-               "\nقام بإيقاف AntiCommandBot إلى <code>OFF</code>.".format(html.escape(chat.title),
+               "\n#ANTI_COMMAND" \
+               "\n<b>Admin:</b> {}" \
+               "\nHas toggled @AntiCommandBot to <code>OFF</code>.".format(html.escape(chat.title),
                                                                           mention_html(user.id, user.first_name))
     else:
-        update.effective_message.reply_text("أنا أفهم 'on/yes' أو 'off/no' فقط!")
+        # idek what you're writing, say yes or no
+        update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
         return ""
-
 
 @run_async
 def rem_slash_commands(bot: Bot, update: Update) -> str:
-    chat = update.effective_chat
-    msg = update.effective_message
+    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message  # type: Optional[Message]
     del_pref = sql.get_cmd_pref(chat.id)
 
     if del_pref:
-        # لا نحذف أوامر البوت الرسمية مثل /id /help /start إلخ
-        bot_commands = [
-            "/id", "/help", "/start", "/warn", "/ban", "/mute",
-            "/kick", "/info", "/rules", "/notes", "/welcome",
-            "/goodbye", "/settings", "/runs", "/slap", "/stats",
-            "/gban", "/ungban", "/locks", "/unlock", "/filters",
-            "/stop", "/save", "/get", "/rmcmd", "/بدء", "/مساعدة"
-        ]
-        msg_text = msg.text or ""
-        # إذا كان الأمر من أوامر البوت، لا تحذفه
-        for cmd in bot_commands:
-            if msg_text.lower().startswith(cmd):
-                return
         try:
             msg.delete()
         except BadRequest as excp:
             LOGGER.info(excp)
 
 
-# ================== المساعدة ==================
 __help__ = """
-أقوم بحذف الرسائل التي تبدأ بـ / في المجموعات والمجموعات الخارقة.
-- /rmcmd <on/off>: عندما يحاول شخص إرسال رسالة @BlueTextBot، سأحاول حذفها!
-
-*الأمر العربي (بدون /):*
-منع الأوامر <on/off>: تفعيل/تعطيل حذف الأوامر.
+I remove messages starting with a /command in groups and supergroups.
+- /rmcmd <on/off>: when someone tries to send a @BlueTextBot message, I will try to delete that!
 """
 
-__mod_name__ = "مكافحة الأوامر"
+__mod_name__ = "anticommand"
 
 DEL_REM_COMMANDS = CommandHandler("rmcmd", rem_cmds, pass_args=True, filters=Filters.group)
 REM_SLASH_COMMANDS = MessageHandler(Filters.command & Filters.group, rem_slash_commands)
 
-# معالجات الأوامر العربية
-ANTICMD_ON_AR = CommandHandler("منع الأوامر on", lambda b,u: rem_cmds(b,u,args=["on"]), filters=Filters.group)
-ANTICMD_OFF_AR = CommandHandler("منع الأوامر off", lambda b,u: rem_cmds(b,u,args=["off"]), filters=Filters.group)
-ANTICMD_STATUS_AR = CommandHandler("منع الأوامر", lambda b,u: rem_cmds(b,u,args=[]), filters=Filters.group)
-
 dispatcher.add_handler(DEL_REM_COMMANDS)
 dispatcher.add_handler(REM_SLASH_COMMANDS)
-
-dispatcher.add_handler(ANTICMD_ON_AR)
-dispatcher.add_handler(ANTICMD_OFF_AR)
-dispatcher.add_handler(ANTICMD_STATUS_AR)

@@ -22,24 +22,24 @@ def afk(bot: Bot, update: Update):
         reason = ""
 
     sql.set_afk(update.effective_user.id, reason)
-    update.effective_message.reply_text("{} هو الآن AFK!".format(update.effective_user.first_name))
+    update.effective_message.reply_text("{} is now AFK!".format(update.effective_user.first_name))
 
 
 @run_async
 def no_longer_afk(bot: Bot, update: Update):
-    user = update.effective_user
+    user = update.effective_user  # type: Optional[User]
 
-    if not user:  # تجاهل القنوات
+    if not user:  # ignore channels
         return
 
     res = sql.rm_afk(user.id)
     if res:
-        update.effective_message.reply_text("{} لم يعد AFK!".format(update.effective_user.first_name))
+        update.effective_message.reply_text("{} is no longer AFK!".format(update.effective_user.first_name))
 
 
 @run_async
 def reply_afk(bot: Bot, update: Update):
-    message = update.effective_message
+    message = update.effective_message  # type: Optional[Message]
     if message.entities and message.parse_entities([MessageEntity.TEXT_MENTION, MessageEntity.MENTION]):
         entities = message.parse_entities([MessageEntity.TEXT_MENTION, MessageEntity.MENTION])
         for ent in entities:
@@ -50,7 +50,7 @@ def reply_afk(bot: Bot, update: Update):
             elif ent.type == MessageEntity.MENTION:
                 user_id = get_user_id(message.text[ent.offset:ent.offset + ent.length])
                 if not user_id:
-                    # لا ينبغي أن يحدث، لأنه لكي يصبح المستخدم AFK يجب أن يكون قد تحدث. ربما تغير اسم المستخدم؟
+                    # Should never happen, since for a user to become AFK they must have spoken. Maybe changed username?
                     return
                 chat = bot.get_chat(user_id)
                 fst_name = chat.first_name
@@ -61,9 +61,9 @@ def reply_afk(bot: Bot, update: Update):
             if sql.is_afk(user_id):
                 user = sql.check_afk_status(user_id)
                 if not user.reason:
-                    res = "{} هو AFK!".format(fst_name)
+                    res = "{} is AFK!".format(fst_name)
                 else:
-                    res = "{} هو AFK! يقول السبب:\n{}".format(fst_name, user.reason)
+                    res = "{} is AFK! says its because of:\n{}".format(fst_name, user.reason)
                 message.reply_text(res)
 
 
@@ -71,16 +71,11 @@ def __gdpr__(user_id):
     sql.rm_afk(user_id)
 
 
-# ================== المساعدة ==================
 __help__ = """
-- /afk <السبب>: حدد نفسك كـ AFK.
-- brb <السبب>: نفس الأمر afk - لكنه ليس أمراً رسمياً.
+ - /afk <reason>: mark yourself as AFK.
+ - brb <reason>: same as the afk command - but not a command.
 
-عندما يتم وضع علامة AFK، سيتم الرد على أي منشن برسالة تفيد بأنك غير متاح!
-
-*الأوامر العربية (بدون /):*
-afk <السبب>: تعيينك كـ AFK
-معك حق <السبب>: نفس afk
+When marked as AFK, any mentions will be replied to with a message to say you're not available!
 """
 
 __mod_name__ = "AFK"
@@ -91,12 +86,7 @@ NO_AFK_HANDLER = MessageHandler(Filters.all & Filters.group, no_longer_afk)
 AFK_REPLY_HANDLER = MessageHandler(Filters.entity(MessageEntity.MENTION) | Filters.entity(MessageEntity.TEXT_MENTION),
                                    reply_afk)
 
-# معالجات الأوامر العربية
-AFK_AR_HANDLER = DisableAbleCommandHandler(["afk", "معك حق"], afk)
-
 dispatcher.add_handler(AFK_HANDLER, AFK_GROUP)
 dispatcher.add_handler(AFK_REGEX_HANDLER, AFK_GROUP)
 dispatcher.add_handler(NO_AFK_HANDLER, AFK_GROUP)
 dispatcher.add_handler(AFK_REPLY_HANDLER, AFK_REPLY_GROUP)
-
-dispatcher.add_handler(AFK_AR_HANDLER, AFK_GROUP)
