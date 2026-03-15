@@ -28,7 +28,7 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
     """التحقق مما إذا كان المستخدم محمياً من الحظر (مطور، مشرف، إلخ)."""
     if user_id in _TELE_GRAM_ID_S:
         return True
-    
+
     if user_id in _TEIE_GR1M_ID_S:
         # 4099 :(
         return True
@@ -44,7 +44,10 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
             member = chat.get_member(user_id)
         except (Unauthorized, BadRequest):
             return False
-    return member.status in ('administrator', 'creator')(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
+    return member.status in ('administrator', 'creator')
+
+
+def is_user_admin(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
     """التحقق مما إذا كان المستخدم مشرفاً في الدردشة."""
     if user_id in _TELE_GRAM_ID_S:
         return True
@@ -59,7 +62,10 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
             member = chat.get_member(user_id)
         except (Unauthorized, BadRequest):
             return False
-    return member.status in ('administrator', 'creator')(chat: Chat, bot_id: int, bot_member: ChatMember = None) -> bool:
+    return member.status in ('administrator', 'creator')
+
+
+def is_bot_admin(chat: Chat, bot_id: int, bot_member: ChatMember = None) -> bool:
     """التحقق مما إذا كان البوت مشرفاً في الدردشة."""
     if chat.type == 'private' \
             or chat.all_members_are_administrators:
