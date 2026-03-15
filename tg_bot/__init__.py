@@ -2,11 +2,21 @@ import logging
 import os
 import sys
 import time
-from distutils.util import strtobool as sb
 from logging import StreamHandler
 
 import telegram as tg
 from telegram.ext import Application
+
+# دالة بديلة لـ strtobool (لأن distutils أزيل في Python 3.12)
+def strtobool(val: str) -> bool:
+    """تحويل سلسلة نصية إلى قيمة منطقية (bool)."""
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError(f"Invalid truth value: {val}")
 
 # قم بتعطيل التسجيل إذا كان في وضع الإنتاج
 if os.environ.get("DISABLE_LOGGER"):
