@@ -3,8 +3,7 @@ from typing import Dict, List, Optional
 from html import escape
 
 from telegram import InlineKeyboardButton, Bot, Update
-from telegram.constants import MessageLimit
-from telegram import ParseMode
+from telegram.constants import MessageLimit, ParseMode  # الاستيراد الصحيح
 
 from tg_bot import LOGGER, SUDO_USERS, OWNER_ID
 
