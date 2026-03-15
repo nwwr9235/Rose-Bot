@@ -261,7 +261,12 @@ def check_and_ban(update, user_id, should_message=True):
 @run_async
 def enforce_gban(bot: Bot, update: Update):
     # Not using @restrict handler to avoid spamming - just ignore if cant gban.
-    if sql.does_chat_gban(update.effective_chat.id) and update.effective_chat.get_member(bot.id).can_restrict_members:
+    try:
+        bot_member = update.effective_chat.get_member(bot.id)
+        can_restrict = bot_member.can_restrict_members
+    except (BadRequest, TelegramError):
+        return
+    if sql.does_chat_gban(update.effective_chat.id) and can_restrict:
         user = update.effective_user  # type: Optional[User]
         chat = update.effective_chat  # type: Optional[Chat]
         msg = update.effective_message  # type: Optional[Message]
