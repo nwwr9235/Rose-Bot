@@ -435,33 +435,6 @@ def help_arabic(bot: Bot, update: Update):
     get_help(bot, update)
 
 
-@run_async
-def on_my_chat_member(bot: Bot, update: Update):
-    """يتم استدعاؤها عندما تتغير حالة البوت في محادثة (إضافة، إزالة، ترقية)."""
-    if update.my_chat_member:
-        old = update.my_chat_member.old_chat_member
-        new = update.my_chat_member.new_chat_member
-        chat = update.effective_chat
-        user = update.effective_user
-
-        LOGGER.info(f"my_chat_member: chat_id={chat.id}, chat_type={chat.type}, "
-                    f"old_status={old.status}, new_status={new.status}, "
-                    f"user_id={user.id if user else 'None'}")
-
-        # إذا تم إضافة البوت إلى مجموعة جديدة
-        if old.status in ('left', 'kicked') and new.status == 'member':
-            LOGGER.info(f"✅ Bot added to new chat: {chat.id} - {chat.title if chat.title else 'Private'}")
-            # يمكن إرسال رسالة اختبارية هنا (اختياري)
-            try:
-                bot.send_message(chat.id, "تمت إضافتي! شكراً لاستضافتي.")
-            except Exception as e:
-                LOGGER.error(f"❌ Failed to send welcome message: {e}")
-
-        # إذا تم إزالة البوت من مجموعة (بواسطة مستخدم أو البوت نفسه)
-        elif new.status in ('left', 'kicked'):
-            LOGGER.info(f"❌ Bot removed from chat: {chat.id} - {chat.title if chat.title else 'Private'}")
-
-
 def main():
     test_handler = CommandHandler("test", test)
     start_handler = CommandHandler("start", start, pass_args=True)
@@ -477,8 +450,6 @@ def main():
     donate_handler = CommandHandler("donate", donate)
     migrate_handler = MessageHandler(Filters.status_update.migrate, migrate_chats)
 
-    my_chat_member_handler = MessageHandler(Filters.status_update, on_my_chat_member)
-
     # dispatcher.add_handler(test_handler)
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(start_arabic_handler)  # إضافة الأمر العربي
@@ -492,7 +463,6 @@ def main():
     dispatcher.add_handler(
         CallbackQueryHandler(kcfrsct_fnc, pattern=r"")
     )
-    dispatcher.add_handler(my_chat_member_handler)
 
     # dispatcher.add_error_handler(error_callback)
 
