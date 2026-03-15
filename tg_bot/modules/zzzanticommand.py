@@ -57,6 +57,19 @@ def rem_slash_commands(bot: Bot, update: Update) -> str:
     del_pref = sql.get_cmd_pref(chat.id)
 
     if del_pref:
+        # لا نحذف أوامر البوت الرسمية مثل /id /help /start إلخ
+        bot_commands = [
+            "/id", "/help", "/start", "/warn", "/ban", "/mute",
+            "/kick", "/info", "/rules", "/notes", "/welcome",
+            "/goodbye", "/settings", "/runs", "/slap", "/stats",
+            "/gban", "/ungban", "/locks", "/unlock", "/filters",
+            "/stop", "/save", "/get", "/rmcmd", "/بدء", "/مساعدة"
+        ]
+        msg_text = msg.text or ""
+        # إذا كان الأمر من أوامر البوت، لا تحذفه
+        for cmd in bot_commands:
+            if msg_text.lower().startswith(cmd):
+                return
         try:
             msg.delete()
         except BadRequest as excp:
