@@ -107,7 +107,9 @@ def chats(bot: Bot, update: Update):
 def chat_checker(bot: Bot, update: Update):
     try:
         member = update.effective_message.chat.get_member(bot.id)
-        if member and not member.can_send_messages:
+        # نتحقق فقط إذا كان can_send_messages صراحةً False (وليس None)
+        # لتجنب مغادرة البوت عند إضافته لأول مرة قبل منحه الصلاحيات
+        if member and member.can_send_messages == False:
             bot.leaveChat(update.effective_message.chat.id)
     except Unauthorized:
         # البوت ليس عضواً في الدردشة، نتجاهل
