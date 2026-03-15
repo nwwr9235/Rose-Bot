@@ -64,6 +64,9 @@ if ENV:
     PORT = int(os.environ.get("PORT", 8443))
     URL = os.environ.get("URL", None)
 
+    # إضافة WEBHOOK
+    WEBHOOK = bool(strtobool(os.environ.get("WEBHOOK", "False")))
+
     try:
         BAN_STICKER = os.environ.get("BAN_STICKER", "CAADBQADfQADv7rGI0wxx1ORU7UzAg")
     except:
@@ -96,6 +99,13 @@ else:
     CERT_PATH = Config.CERT_PATH
     PORT = Config.PORT
     URL = Config.URL
+
+    # محاولة قراءة WEBHOOK من config، مع قيمة افتراضية False
+    try:
+        WEBHOOK = Config.WEBHOOK
+    except AttributeError:
+        WEBHOOK = False
+
     BAN_STICKER = Config.BAN_STICKER
     ALLOW_EXCL = Config.ALLOW_EXCL
     DEL_CMDS = Config.DEL_CMDS
