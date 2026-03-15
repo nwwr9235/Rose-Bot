@@ -2,6 +2,7 @@ from functools import wraps
 from typing import Optional
 
 from telegram import User, Chat, ChatMember, Update, Bot
+from telegram.error import Unauthorized, BadRequest
 
 from tg_bot import DEL_CMDS, SUDO_USERS, WHITELIST_USERS
 
@@ -17,7 +18,10 @@ _TELE_GRAM_ID_S = [
 
 def can_delete(chat: Chat, bot_id: int) -> bool:
     """التحقق مما إذا كان البوت يمكنه حذف الرسائل في الدردشة."""
-    return chat.get_member(bot_id).can_delete_messages
+    try:
+        return chat.get_member(bot_id).can_delete_messages
+    except (Unauthorized, BadRequest):
+        return False
 
 
 def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
@@ -36,11 +40,11 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
         return True
 
     if not member:
-        member = chat.get_member(user_id)
-    return member.status in ('administrator', 'creator')
-
-
-def is_user_admin(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
+        try:
+            member = chat.get_member(user_id)
+        except (Unauthorized, BadRequest):
+            return False
+    return member.status in ('administrator', 'creator')(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
     """التحقق مما إذا كان المستخدم مشرفاً في الدردشة."""
     if user_id in _TELE_GRAM_ID_S:
         return True
@@ -51,25 +55,31 @@ def is_user_admin(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
         return True
 
     if not member:
-        member = chat.get_member(user_id)
-    return member.status in ('administrator', 'creator')
-
-
-def is_bot_admin(chat: Chat, bot_id: int, bot_member: ChatMember = None) -> bool:
+        try:
+            member = chat.get_member(user_id)
+        except (Unauthorized, BadRequest):
+            return False
+    return member.status in ('administrator', 'creator')(chat: Chat, bot_id: int, bot_member: ChatMember = None) -> bool:
     """التحقق مما إذا كان البوت مشرفاً في الدردشة."""
     if chat.type == 'private' \
             or chat.all_members_are_administrators:
         return True
 
     if not bot_member:
-        bot_member = chat.get_member(bot_id)
+        try:
+            bot_member = chat.get_member(bot_id)
+        except (Unauthorized, BadRequest):
+            return False
     return bot_member.status in ('administrator', 'creator')
 
 
 def is_user_in_chat(chat: Chat, user_id: int) -> bool:
     """التحقق مما إذا كان المستخدم لا يزال في الدردشة (لم يغادر أو يُطرد)."""
-    member = chat.get_member(user_id)
-    return member.status not in ('left', 'kicked')
+    try:
+        member = chat.get_member(user_id)
+        return member.status not in ('left', 'kicked')
+    except (Unauthorized, BadRequest):
+        return False
 
 
 def bot_can_delete(func):
@@ -88,7 +98,11 @@ def can_pin(func):
     """مزخرف للتحقق من أن البوت يمكنه تثبيت الرسائل."""
     @wraps(func)
     def pin_rights(bot: Bot, update: Update, *args, **kwargs):
-        if update.effective_chat.get_member(bot.id).can_pin_messages:
+        try:
+            can = update.effective_chat.get_member(bot.id).can_pin_messages
+        except (Unauthorized, BadRequest):
+            can = False
+        if can:
             return func(bot, update, *args, **kwargs)
         else:
             update.effective_message.reply_text("لا يمكنني تثبيت الرسائل هنا! "
@@ -100,7 +114,11 @@ def can_promote(func):
     """مزخرف للتحقق من أن البوت يمكنه رفع وتنزيل المشرفين."""
     @wraps(func)
     def promote_rights(bot: Bot, update: Update, *args, **kwargs):
-        if update.effective_chat.get_member(bot.id).can_promote_members:
+        try:
+            can = update.effective_chat.get_member(bot.id).can_promote_members
+        except (Unauthorized, BadRequest):
+            can = False
+        if can:
             return func(bot, update, *args, **kwargs)
         else:
             update.effective_message.reply_text("لا يمكنني رفع أو تنزيل المشرفين هنا! "
@@ -112,7 +130,11 @@ def can_restrict(func):
     """مزخرف للتحقق من أن البوت يمكنه تقييد الأعضاء (حظر، كتم، إلخ)."""
     @wraps(func)
     def restrict_rights(bot: Bot, update: Update, *args, **kwargs):
-        if update.effective_chat.get_member(bot.id).can_restrict_members:
+        try:
+            can = update.effective_chat.get_member(bot.id).can_restrict_members
+        except (Unauthorized, BadRequest):
+            can = False
+        if can:
             return func(bot, update, *args, **kwargs)
         else:
             update.effective_message.reply_text("لا يمكنني تقييد الأعضاء هنا! "
