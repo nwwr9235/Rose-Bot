@@ -13,13 +13,13 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from telegram.error import (
-    Unauthorized,
-    BadRequest,
-    TimedOut,
-    NetworkError,
-    ChatMigrated,
-    TelegramError,
+import telegram.error as tel_err
+Unauthorized = tel_err.Unauthorized
+BadRequest = tel_err.BadRequest
+TimedOut = tel_err.TimedOut
+NetworkError = tel_err.NetworkError
+ChatMigrated = tel_err.ChatMigrated
+TelegramError = tel_err.TelegramError
 )
 
 from tg_bot import TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, ALLOW_EXCL
