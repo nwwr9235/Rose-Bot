@@ -4,7 +4,6 @@ import logging
 from typing import Optional, List
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram import __version__ as PTB_VERSION
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -28,7 +27,7 @@ from tg_bot.modules import ALL_MODULES
 from tg_bot.modules.helper_funcs.chat_status import is_user_admin
 from tg_bot.modules.helper_funcs.misc import paginate_modules
 
-# تهيئة متغيرات عامة
+# =================== المتغيرات العامة ===================
 IMPORTED = {}
 MIGRATEABLE = []
 HELPABLE = {}
@@ -40,7 +39,7 @@ CHAT_SETTINGS = {}
 USER_SETTINGS = {}
 GDPR = []
 
-# تحميل جميع الوحدات
+# =================== تحميل جميع الوحدات ===================
 for module_name in ALL_MODULES:
     imported_module = importlib.import_module("tg_bot.modules." + module_name)
     if not hasattr(imported_module, "__mod_name__"):
@@ -49,7 +48,7 @@ for module_name in ALL_MODULES:
     if imported_module.__mod_name__.lower() not in IMPORTED:
         IMPORTED[imported_module.__mod_name__.lower()] = imported_module
     else:
-        raise Exception("Cannot have two modules with the same name! Please change one.")
+        raise Exception("لا يمكن وجود وحدتين بنفس الاسم! الرجاء تغيير إحداهما")
 
     if hasattr(imported_module, "__help__") and imported_module.__help__:
         HELPABLE[imported_module.__mod_name__.lower()] = imported_module
@@ -79,9 +78,9 @@ for module_name in ALL_MODULES:
         USER_SETTINGS[imported_module.__mod_name__.lower()] = imported_module
 
 
-# نصوص البوت (تم تحديثها للعربية لكن يمكنك تعديلها لاحقاً)
+# =================== نصوص البوت (عربية) ===================
 PM_START_TEXT = """
-مرحباً {}! أنا اسمي {}! أنا بوت إدارة متطور يعمل مع المجموعات.
+مرحباً {}! أنا اسمي {}! أنا بوت إدارة متطور.
 تم إنشائي باستخدام Python و python-telegram-bot.
 لمعرفة الأوامر المتاحة، استخدم /help.
 """
@@ -101,28 +100,33 @@ HELP_STRINGS = """
 DONATE_STRING = """إذا أردت دعم المطور، يمكنك التبرع عبر الرابط: {}""".format(DONATION_LINK if DONATION_LINK else "لا يوجد رابط تبرع حالياً.")
 
 
-# دوال مساعدة (غير متزامنة)
-async def send_help(chat_id: int, text: str, keyboard: InlineKeyboardMarkup = None, context: ContextTypes.DEFAULT_TYPE = None):
+# =================== دوال مساعدة (غير متزامنة) ===================
+async def send_help(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    text: str,
+    keyboard: InlineKeyboardMarkup = None,
+):
     """إرسال رسالة المساعدة."""
     if not keyboard:
         keyboard = InlineKeyboardMarkup(paginate_modules(0, HELPABLE, "help"))
-    if context:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard
-        )
-    else:
-        # في حالة عدم وجود context (مثلاً من داخل دالة بدون context)، نستخدم application.bot
-        # ولكن هنا سنفترض أن context موجود.
-        pass
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=keyboard,
+    )
 
 
-async def send_settings(chat_id: int, user_id: int, user: bool = False, context: ContextTypes.DEFAULT_TYPE = None):
+async def send_settings(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    user_id: int,
+    user: bool = False,
+):
     """إرسال إعدادات المستخدم أو المجموعة."""
-    if not context:
-        return
     if user:
         if USER_SETTINGS:
             settings = "\n\n".join(
@@ -132,13 +136,13 @@ async def send_settings(chat_id: int, user_id: int, user: bool = False, context:
             await context.bot.send_message(
                 user_id,
                 "إعداداتك الحالية:\n\n" + settings,
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=ParseMode.MARKDOWN,
             )
         else:
             await context.bot.send_message(
                 user_id,
                 "لا توجد إعدادات خاصة بالمستخدم حالياً.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=ParseMode.MARKDOWN,
             )
     else:
         if CHAT_SETTINGS:
@@ -148,33 +152,37 @@ async def send_settings(chat_id: int, user_id: int, user: bool = False, context:
                 f"اختر الوحدة التي تريد عرض إعداداتها لمجموعة {chat.title}:",
                 reply_markup=InlineKeyboardMarkup(
                     paginate_modules(0, CHAT_SETTINGS, "stngs", chat=chat_id)
-                )
+                ),
             )
         else:
             await context.bot.send_message(
                 user_id,
                 "لا توجد إعدادات للمجموعة حالياً.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=ParseMode.MARKDOWN,
             )
 
 
-# دوال المعالجة (handlers) محدثة
+# =================== معالجات الأوامر (غير متزامنة) ===================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج أمر /start."""
     if update.effective_chat.type == "private":
         args = context.args
         if args:
             if args[0].lower() == "help":
-                await send_help(update.effective_chat.id, HELP_STRINGS, context=context)
+                await send_help(update, context, update.effective_chat.id, HELP_STRINGS)
             elif args[0].lower().startswith("stngs_"):
                 match = re.match(r"stngs_(.*)", args[0].lower())
                 if match:
                     chat_id = match.group(1)
                     chat = await context.bot.get_chat(chat_id)
                     if await is_user_admin(chat, update.effective_user.id):
-                        await send_settings(int(chat_id), update.effective_user.id, user=False, context=context)
+                        await send_settings(
+                            update, context, int(chat_id), update.effective_user.id, user=False
+                        )
                     else:
-                        await send_settings(int(chat_id), update.effective_user.id, user=True, context=context)
+                        await send_settings(
+                            update, context, int(chat_id), update.effective_user.id, user=True
+                        )
             elif args[0][1:].isdigit() and "rules" in HELPABLE:
                 await IMPORTED["rules"].send_rules(update, args[0], from_pm=True)
         else:
@@ -185,14 +193,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(
                     [
-                        [InlineKeyboardButton(text="➕ أضفني إلى مجموعتك", url=f"t.me/{bot_username}?startgroup=true"),
-                         InlineKeyboardButton(text="🤖 اصنع بوتك الخاص", url="https://youtu.be/W6CLKrehy6w")],
-                        [InlineKeyboardButton(text="👥 مجموعة الدعم", url="https://t.me/Mo_Tech_Group"),
-                         InlineKeyboardButton(text="🔔 قناة التحديثات", url="https://t.me/Mo_Tech_YT")],
-                        [InlineKeyboardButton(text="👨‍💻 الشرح", url="https://youtu.be/wKL90i3cjPw"),
-                         InlineKeyboardButton(text="🛠 المساعدة", url=f"t.me/{bot_username}?start=help")]
+                        [
+                            InlineKeyboardButton(
+                                text="➕ أضفني إلى مجموعتك",
+                                url=f"t.me/{bot_username}?startgroup=true",
+                            ),
+                            InlineKeyboardButton(
+                                text="🤖 اصنع بوتك الخاص",
+                                url="https://youtu.be/W6CLKrehy6w",
+                            ),
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text="👥 مجموعة الدعم",
+                                url="https://t.me/Mo_Tech_Group",
+                            ),
+                            InlineKeyboardButton(
+                                text="🔔 قناة التحديثات",
+                                url="https://t.me/Mo_Tech_YT",
+                            ),
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text="👨‍💻 الشرح",
+                                url="https://youtu.be/wKL90i3cjPw",
+                            ),
+                            InlineKeyboardButton(
+                                text="🛠 المساعدة",
+                                url=f"t.me/{bot_username}?start=help",
+                            ),
+                        ],
                     ]
-                )
+                ),
             )
     else:
         await update.message.reply_text("البوت يعمل!")
@@ -218,7 +250,7 @@ async def help_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton(text="🔙 رجوع", callback_data="help_back")]]
-                )
+                ),
             )
             await query.message.delete()
         elif prev_match:
@@ -228,7 +260,7 @@ async def help_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(
                     paginate_modules(curr_page - 1, HELPABLE, "help")
-                )
+                ),
             )
             await query.message.delete()
         elif next_match:
@@ -238,14 +270,16 @@ async def help_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(
                     paginate_modules(next_page + 1, HELPABLE, "help")
-                )
+                ),
             )
             await query.message.delete()
         elif back_match:
             await query.message.reply_text(
                 HELP_STRINGS,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(paginate_modules(0, HELPABLE, "help"))
+                reply_markup=InlineKeyboardMarkup(
+                    paginate_modules(0, HELPABLE, "help")
+                ),
             )
             await query.message.delete()
     except BadRequest as e:
@@ -257,12 +291,18 @@ async def get_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج أمر /help."""
     chat = update.effective_chat
     if chat.type != "private":
-        # إرسال زر لفتح المساعدة في الخاص
         await update.message.reply_text(
             "لرؤية قائمة الأوامر، تواصل معي في الخاص.",
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text="المساعدة", url=f"t.me/{context.bot.username}?start=help")]]
-            )
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="المساعدة",
+                            url=f"t.me/{context.bot.username}?start=help",
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
@@ -271,11 +311,17 @@ async def get_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         module_name = args[0].lower()
         module = HELPABLE[module_name]
         text = f"*وحدة {module.__mod_name__}*:\n\n{module.__help__}"
-        await send_help(chat.id, text, InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text="🔙 رجوع", callback_data="help_back")]]
-        ), context)
+        await send_help(
+            update,
+            context,
+            chat.id,
+            text,
+            InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text="🔙 رجوع", callback_data="help_back")]]
+            ),
+        )
     else:
-        await send_help(chat.id, HELP_STRINGS, context=context)
+        await send_help(update, context, chat.id, HELP_STRINGS)
 
 
 async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -294,14 +340,28 @@ async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             module_name = mod_match.group(2)
             chat = await context.bot.get_chat(chat_id)
             module = CHAT_SETTINGS[module_name]
-            text = f"*إعدادات مجموعة {chat.title} لوحدة {module.__mod_name__}*:\n\n"
-            text += await module.__chat_settings__(chat_id, update.effective_user.id)  # يجب أن تكون __chat_settings__ غير متزامنة (async) وإلا سنحتاج لتعديلها
+            # نفترض أن __chat_settings__ أصبحت غير متزامنة
+            if hasattr(module.__chat_settings__, "__call__") and not hasattr(module.__chat_settings__, "func"):
+                # إذا كانت دالة عادية، نفترض أنها غير متزامنة
+                settings_text = await module.__chat_settings__(chat_id, update.effective_user.id)
+            else:
+                # إذا كانت متزامنة، نسميها مباشرة
+                settings_text = module.__chat_settings__(chat_id, update.effective_user.id)
+
+            text = f"*إعدادات مجموعة {chat.title} لوحدة {module.__mod_name__}*:\n\n{settings_text}"
             await query.message.reply_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text="🔙 رجوع", callback_data=f"stngs_back({chat_id})")]]
-                )
+                    [
+                        [
+                            InlineKeyboardButton(
+                                text="🔙 رجوع",
+                                callback_data=f"stngs_back({chat_id})",
+                            )
+                        ]
+                    ]
+                ),
             )
             await query.message.delete()
         elif prev_match:
@@ -312,7 +372,7 @@ async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"إليك إعدادات {chat.title} - اختر الوحدة:",
                 reply_markup=InlineKeyboardMarkup(
                     paginate_modules(curr_page - 1, CHAT_SETTINGS, "stngs", chat=chat_id)
-                )
+                ),
             )
             await query.message.delete()
         elif next_match:
@@ -323,7 +383,7 @@ async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"إليك إعدادات {chat.title} - اختر الوحدة:",
                 reply_markup=InlineKeyboardMarkup(
                     paginate_modules(next_page + 1, CHAT_SETTINGS, "stngs", chat=chat_id)
-                )
+                ),
             )
             await query.message.delete()
         elif back_match:
@@ -331,7 +391,9 @@ async def settings_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(chat_id)
             await query.message.reply_text(
                 f"إليك إعدادات {chat.title} - اختر الوحدة:",
-                reply_markup=InlineKeyboardMarkup(paginate_modules(0, CHAT_SETTINGS, "stngs", chat=chat_id))
+                reply_markup=InlineKeyboardMarkup(
+                    paginate_modules(0, CHAT_SETTINGS, "stngs", chat=chat_id)
+                ),
             )
             await query.message.delete()
     except BadRequest as e:
@@ -349,29 +411,50 @@ async def get_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text="الإعدادات", url=f"t.me/{context.bot.username}?start=stngs_{chat.id}")]]
-                )
+                    [
+                        [
+                            InlineKeyboardButton(
+                                text="الإعدادات",
+                                url=f"t.me/{context.bot.username}?start=stngs_{chat.id}",
+                            )
+                        ]
+                    ]
+                ),
             )
         else:
             text = "اضغط هنا لرؤية إعداداتك الشخصية."
             await update.message.reply_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(text="إعداداتي", url=f"t.me/{context.bot.username}?start=stngs_{chat.id}")]]
-                )
+                    [
+                        [
+                            InlineKeyboardButton(
+                                text="إعداداتي",
+                                url=f"t.me/{context.bot.username}?start=stngs_{chat.id}",
+                            )
+                        ]
+                    ]
+                ),
             )
     else:
-        await send_settings(chat.id, user.id, user=True, context=context)
+        await send_settings(update, context, chat.id, user.id, user=True)
 
 
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج أمر /donate."""
     chat = update.effective_chat
     if chat.type == "private":
-        await update.message.reply_text(DONATE_STRING, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        await update.message.reply_text(
+            DONATE_STRING, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+        )
     else:
         try:
-            await context.bot.send_message(update.effective_user.id, DONATE_STRING, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+            await context.bot.send_message(
+                update.effective_user.id,
+                DONATE_STRING,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
             await update.message.reply_text("لقد أرسلت لك معلومات التبرع في الخاص.")
         except Unauthorized:
             await update.message.reply_text("تواصل معي في الخاص أولاً لرؤية معلومات التبرع.")
@@ -392,16 +475,34 @@ async def migrate_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LOGGER.info("Migrating from %s to %s", old_chat, new_chat)
     for mod in MIGRATEABLE:
         if hasattr(mod, "__migrate__"):
-            mod.__migrate__(old_chat, new_chat)  # قد تكون هذه الدالة غير متزامنة، سنفترض أنها متزامنة
+            mod.__migrate__(old_chat, new_chat)
     LOGGER.info("Migration successful.")
 
 
-# دالة معالجة الأخطاء (اختياري)
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """معالج الأخطاء."""
+async def kcfrsct_fnc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دالة خاصة لمعالجة أزرار الفلاتر (غير واضحة ولكنها موجودة)."""
+    query = update.callback_query
+    await query.answer()
+    _match = re.match(r"rsct_(.*)_33801", query.data)
+    if _match:
+        try:
+            from tg_bot.modules.sql.cust_filters_sql import get_btn_with_di
+            _soqka = get_btn_with_di(int(_match.group(1)))
+            await query.answer(
+                text=_soqka.url.replace("\\n", "\n").replace("\\t", "\t"),
+                show_alert=True,
+            )
+        except Exception as e:
+            LOGGER.exception(e)
+            await query.answer()
+
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """معالج الأخطاء العام."""
     LOGGER.error("Exception while handling an update:", exc_info=context.error)
 
 
+# =================== الدالة الرئيسية ===================
 def main() -> None:
     """تشغيل البوت."""
     # إنشاء التطبيق
@@ -414,6 +515,7 @@ def main() -> None:
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CallbackQueryHandler(help_button, pattern=r"^help_"))
     application.add_handler(CallbackQueryHandler(settings_button, pattern=r"^stngs_"))
+    application.add_handler(CallbackQueryHandler(kcfrsct_fnc, pattern=r"^rsct_"))
     application.add_handler(MessageHandler(filters.StatusUpdate.MIGRATE, migrate_chats))
 
     # إضافة معالج الأخطاء
