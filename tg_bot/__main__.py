@@ -13,8 +13,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from telegram.error import Unauthorized as _Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
-Unauthorized = _Unauthorized (
+from telegram.error import (
     Unauthorized,
     BadRequest,
     TimedOut,
