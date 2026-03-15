@@ -334,7 +334,7 @@ async def adminlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def __stats__():
-    return f"{} مجموعة لديها روابط محفوظة.".format(sql.num_chats())
+    return f"{sql.num_chats()} مجموعة لديها روابط محفوظة."
 
 
 async def __chat_settings__(chat_id: int, user_id: int) -> str:
