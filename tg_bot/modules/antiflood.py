@@ -1,10 +1,11 @@
 import html
 from typing import Optional, List
 
-from telegram import Message, Chat, Update, Bot, User
+from telegram import Update, Chat, User, Message
+from telegram.constants import ParseMode
 from telegram.error import BadRequest
-from telegram.ext import Filters, MessageHandler, CommandHandler, run_async
-from telegram.utils.helpers import mention_html
+from telegram.ext import ContextTypes, MessageHandler, CommandHandler, filters
+from telegram.helpers import mention_html
 
 from tg_bot import dispatcher
 from tg_bot.modules.helper_funcs.chat_status import is_user_admin, user_admin, can_restrict
@@ -14,18 +15,17 @@ from tg_bot.modules.sql import antiflood_sql as sql
 FLOOD_GROUP = 3
 
 
-@run_async
 @loggable
-def check_flood(bot: Bot, update: Update) -> str:
-    user = update.effective_user  # type: Optional[User]
-    chat = update.effective_chat  # type: Optional[Chat]
-    msg = update.effective_message  # type: Optional[Message]
+async def check_flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    user = update.effective_user
+    chat = update.effective_chat
+    msg = update.effective_message
 
-    if not user:  # ignore channels
+    if not user:  # تجاهل القنوات
         return ""
 
-    # ignore admins
-    if is_user_admin(chat, user.id):
+    # تجاهل المشرفين
+    if await is_user_admin(chat, user.id):
         sql.update_flood(chat.id, None)
         return ""
 
@@ -34,106 +34,104 @@ def check_flood(bot: Bot, update: Update) -> str:
         return ""
 
     try:
-        chat.kick_member(user.id)
-        msg.reply_text("ഫ്ലഡ് ചെയ്യുന്നോ... നിങ്ങൾക്കായി ഒരു കണ്ടം ഒരുക്കിയിട്ടുണ്ട്...  "
-                       "ഒന്ന് ഓടിയിട്ട് വരൂ...")
+        await context.bot.ban_chat_member(chat.id, user.id)
+        await msg.reply_text("تقوم بالتكرار... تم حظرك.")
 
-        return "<b>{}:</b>" \
-               "\n#BANNED" \
-               "\n<b>User:</b> {}" \
-               "\nFlooded the group.".format(html.escape(chat.title),
-                                             mention_html(user.id, user.first_name))
+        return f"<b>{html.escape(chat.title)}:</b>" \
+               f"\n#BANNED" \
+               f"\n<b>User:</b> {mention_html(user.id, user.first_name)}" \
+               f"\nFlooded the group."
 
     except BadRequest:
-        msg.reply_text("I can't kick people here, give me permissions first! Until then, I'll disable antiflood.")
+        await msg.reply_text("لا أستطيع حظر الأشخاص هنا، أعطني الصلاحيات أولاً! حتى ذلك الحين، سأقوم بتعطيل مكافحة التكرار.")
         sql.set_flood(chat.id, 0)
-        return "<b>{}:</b>" \
-               "\n#INFO" \
-               "\nDon't have kick permissions, so automatically disabled antiflood.".format(chat.title)
+        return f"<b>{html.escape(chat.title)}:</b>" \
+               f"\n#INFO" \
+               f"\nليس لدي صلاحيات الحظر، لذا تم تعطيل مكافحة التكرار تلقائيًا."
 
 
-@run_async
 @user_admin
 @can_restrict
 @loggable
-def set_flood(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    message = update.effective_message  # type: Optional[Message]
+async def set_flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    chat = update.effective_chat
+    user = update.effective_user
+    message = update.effective_message
+    args = context.args
 
     if len(args) >= 1:
         val = args[0].lower()
         if val == "off" or val == "no" or val == "0":
             sql.set_flood(chat.id, 0)
-            message.reply_text("Antiflood has been disabled.")
+            await message.reply_text("تم تعطيل مكافحة التكرار.")
+            return f"<b>{html.escape(chat.title)}:</b>" \
+                   f"\n#SETFLOOD" \
+                   f"\n<b>Admin:</b> {mention_html(user.id, user.first_name)}" \
+                   f"\nتم تعطيل مكافحة التكرار."
 
         elif val.isdigit():
             amount = int(val)
             if amount <= 0:
                 sql.set_flood(chat.id, 0)
-                message.reply_text("Antiflood has been disabled.")
-                return "<b>{}:</b>" \
-                       "\n#SETFLOOD" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nDisabled antiflood.".format(html.escape(chat.title), mention_html(user.id, user.first_name))
+                await message.reply_text("تم تعطيل مكافحة التكرار.")
+                return f"<b>{html.escape(chat.title)}:</b>" \
+                       f"\n#SETFLOOD" \
+                       f"\n<b>Admin:</b> {mention_html(user.id, user.first_name)}" \
+                       f"\nتم تعطيل مكافحة التكرار."
 
             elif amount < 3:
-                message.reply_text("Antiflood has to be either 0 (disabled), or a number bigger than 3!")
+                await message.reply_text("يجب أن تكون قيمة مكافحة التكرار إما 0 (معطل) أو رقم أكبر من 3!")
                 return ""
 
             else:
                 sql.set_flood(chat.id, amount)
-                message.reply_text("Antiflood has been updated and set to {}".format(amount))
-                return "<b>{}:</b>" \
-                       "\n#SETFLOOD" \
-                       "\n<b>Admin:</b> {}" \
-                       "\nSet antiflood to <code>{}</code>.".format(html.escape(chat.title),
-                                                                    mention_html(user.id, user.first_name), amount)
+                await message.reply_text(f"تم تحديث مكافحة التكرار وتعيينها إلى {amount}")
+                return f"<b>{html.escape(chat.title)}:</b>" \
+                       f"\n#SETFLOOD" \
+                       f"\n<b>Admin:</b> {mention_html(user.id, user.first_name)}" \
+                       f"\nتم تعيين مكافحة التكرار إلى <code>{amount}</code>."
 
         else:
-            message.reply_text("Unrecognised argument - please use a number, 'off', or 'no'.")
+            await message.reply_text("معامل غير معروف - الرجاء استخدام رقم، أو 'off'، أو 'no'.")
 
     return ""
 
 
-@run_async
-def flood(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
-
+async def flood(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
     limit = sql.get_flood_limit(chat.id)
     if limit == 0:
-        update.effective_message.reply_text("I'm not currently enforcing flood control!")
+        await update.effective_message.reply_text("أنا لا أطبق مكافحة التكرار حاليًا!")
     else:
-        update.effective_message.reply_text(
-            "I'm currently banning users if they send more than {} consecutive messages.".format(limit))
+        await update.effective_message.reply_text(
+            f"أقوم حاليًا بحظر المستخدمين إذا أرسلوا أكثر من {limit} رسالة متتالية.")
 
 
 def __migrate__(old_chat_id, new_chat_id):
     sql.migrate_chat(old_chat_id, new_chat_id)
 
 
-def __chat_settings__(chat_id, user_id):
+async def __chat_settings__(chat_id: int, user_id: int) -> str:
     limit = sql.get_flood_limit(chat_id)
     if limit == 0:
-        return "*Not* currently enforcing flood control."
+        return "*لا* يتم تطبيق مكافحة التكرار حاليًا."
     else:
-        return "Antiflood is set to `{}` messages.".format(limit)
+        return f"مكافحة التكرار مضبوطة على `{limit}` رسالة."
 
 
 __help__ = """
- - /flood: Get the current flood control setting
+- /flood: الحصول على إعداد مكافحة التكرار الحالي
 
-*Admin only:*
- - /setflood <int/'no'/'off'>: enables or disables flood control
+*للمشرفين فقط:*
+- /setflood <رقم/'no'/'off'>: تفعيل أو تعطيل مكافحة التكرار
 """
 
-__mod_name__ = "AntiFlood"
+__mod_name__ = "مكافحة التكرار"
 
-FLOOD_BAN_HANDLER = MessageHandler(Filters.all & ~Filters.status_update & Filters.group, check_flood)
-SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood, pass_args=True, filters=Filters.group)
-FLOOD_HANDLER = CommandHandler("flood", flood, filters=Filters.group)
+FLOOD_BAN_HANDLER = MessageHandler(filters.ALL & ~filters.StatusUpdate.ALL & filters.ChatType.GROUPS, check_flood)
+SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood, filters=filters.ChatType.GROUPS)
+FLOOD_HANDLER = CommandHandler("flood", flood, filters=filters.ChatType.GROUPS)
 
 dispatcher.add_handler(FLOOD_BAN_HANDLER, FLOOD_GROUP)
 dispatcher.add_handler(SET_FLOOD_HANDLER)
 dispatcher.add_handler(FLOOD_HANDLER)
-
