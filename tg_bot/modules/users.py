@@ -11,8 +11,6 @@ from telegram.ext import CommandHandler, run_async, Filters, MessageHandler
 from telegram.utils.helpers import escape_markdown, mention_html
 
 from tg_bot import dispatcher, OWNER_ID, SUDO_USERS, SUPPORT_USERS, WHITELIST_USERS, BAN_STICKER
-from tg_bot.__main__ import GDPR
-from tg_bot.__main__ import STATS, USER_INFO
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.extraction import extract_user
 from tg_bot.modules.helper_funcs.filters import CustomFilters
@@ -148,6 +146,7 @@ def info(bot: Bot, update: Update, args: List[str]):
             if user.id in WHITELIST_USERS:
                 text += "\nهذا الشخص مدرج في القائمة البيضاء! لا يمكنني حظره أو طرده."
 
+    from tg_bot.__main__ import USER_INFO
     for mod in USER_INFO:
         mod_info = mod.__user_info__(user.id).strip()
         if mod_info:
@@ -210,6 +209,7 @@ def echo(bot: Bot, update: Update):
 
 @run_async
 def gdpr(bot: Bot, update: Update):
+    from tg_bot.__main__ import GDPR
     update.effective_message.reply_text("جاري حذف البيانات الشخصية...")
     for mod in GDPR:
         mod.__gdpr__(update.effective_user.id)
