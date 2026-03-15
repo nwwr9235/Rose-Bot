@@ -13,15 +13,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-import telegram.error as tel_err  # استيراد الوحدة كاملة
-
-# إعادة تعريف الأسماء للراحة
-Unauthorized = tel_err.Unauthorized
-BadRequest = tel_err.BadRequest
-TimedOut = tel_err.TimedOut
-NetworkError = tel_err.NetworkError
-ChatMigrated = tel_err.ChatMigrated
-TelegramError = tel_err.TelegramError
+from telegram.error import BadRequest  # فقط BadRequest الذي نستخدمه فعلياً
 
 from tg_bot import TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, ALLOW_EXCL
 from tg_bot.modules import ALL_MODULES
@@ -455,7 +447,7 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_web_page_preview=True,
             )
             await update.message.reply_text("لقد أرسلت لك معلومات التبرع في الخاص.")
-        except Unauthorized:
+        except Exception:  # استخدم Exception بدلاً من Unauthorized
             await update.message.reply_text("تواصل معي في الخاص أولاً لرؤية معلومات التبرع.")
 
 
