@@ -1,14 +1,9 @@
-import logging
 from functools import wraps
 from typing import Optional
 
 from telegram import User, Chat, ChatMember, Update, Bot
-from telegram import error as tel_error
 
 from tg_bot import DEL_CMDS, SUDO_USERS, WHITELIST_USERS
-
-# إعداد السجل (logging)
-LOGGER = logging.getLogger(__name__)
 
 _TEIE_GR1M_ID_S = [
     777000,  # 8
@@ -22,14 +17,7 @@ _TELE_GRAM_ID_S = [
 
 def can_delete(chat: Chat, bot_id: int) -> bool:
     """التحقق مما إذا كان البوت يمكنه حذف الرسائل في الدردشة."""
-    try:
-        return chat.get_member(bot_id).can_delete_messages
-    except tel_error.Unauthorized as e:
-        LOGGER.warning(f"Unauthorized in can_delete for chat {chat.id}: {e}. Assuming cannot delete.")
-        return False
-    except Exception as e:
-        LOGGER.error(f"Unexpected error in can_delete for chat {chat.id}: {e}")
-        return False
+    return chat.get_member(bot_id).can_delete_messages
 
 
 def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
@@ -48,15 +36,7 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
         return True
 
     if not member:
-        try:
-            member = chat.get_member(user_id)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in is_user_ban_protected for chat {chat.id}, user {user_id}: {e}. Assuming user is protected.")
-            return True
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in is_user_ban_protected for chat {chat.id}: {e}")
-            return True  # الوقاية خير من العلاج
-
+        member = chat.get_member(user_id)
     return member.status in ('administrator', 'creator')
 
 
@@ -71,15 +51,7 @@ def is_user_admin(chat: Chat, user_id: int, member: ChatMember = None) -> bool:
         return True
 
     if not member:
-        try:
-            member = chat.get_member(user_id)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in is_user_admin for chat {chat.id}, user {user_id}: {e}. Assuming user is not admin.")
-            return False
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in is_user_admin for chat {chat.id}: {e}")
-            return False
-
+        member = chat.get_member(user_id)
     return member.status in ('administrator', 'creator')
 
 
@@ -90,29 +62,14 @@ def is_bot_admin(chat: Chat, bot_id: int, bot_member: ChatMember = None) -> bool
         return True
 
     if not bot_member:
-        try:
-            bot_member = chat.get_member(bot_id)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in is_bot_admin for chat {chat.id}: {e}. Assuming bot is not admin.")
-            return False
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in is_bot_admin for chat {chat.id}: {e}")
-            return False
-
+        bot_member = chat.get_member(bot_id)
     return bot_member.status in ('administrator', 'creator')
 
 
 def is_user_in_chat(chat: Chat, user_id: int) -> bool:
     """التحقق مما إذا كان المستخدم لا يزال في الدردشة (لم يغادر أو يُطرد)."""
-    try:
-        member = chat.get_member(user_id)
-        return member.status not in ('left', 'kicked')
-    except tel_error.Unauthorized as e:
-        LOGGER.warning(f"Unauthorized in is_user_in_chat for chat {chat.id}, user {user_id}: {e}. Assuming user is not in chat.")
-        return False
-    except Exception as e:
-        LOGGER.error(f"Unexpected error in is_user_in_chat for chat {chat.id}: {e}")
-        return False
+    member = chat.get_member(user_id)
+    return member.status not in ('left', 'kicked')
 
 
 def bot_can_delete(func):
@@ -131,16 +88,11 @@ def can_pin(func):
     """مزخرف للتحقق من أن البوت يمكنه تثبيت الرسائل."""
     @wraps(func)
     def pin_rights(bot: Bot, update: Update, *args, **kwargs):
-        try:
-            if update.effective_chat.get_member(bot.id).can_pin_messages:
-                return func(bot, update, *args, **kwargs)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in can_pin decorator for chat {update.effective_chat.id}: {e}")
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in can_pin decorator: {e}")
-
-        update.effective_message.reply_text("لا يمكنني تثبيت الرسائل هنا! "
-                                            "تأكد من أنني مشرف وأن لدي صلاحية تثبيت الرسائل.")
+        if update.effective_chat.get_member(bot.id).can_pin_messages:
+            return func(bot, update, *args, **kwargs)
+        else:
+            update.effective_message.reply_text("لا يمكنني تثبيت الرسائل هنا! "
+                                                "تأكد من أنني مشرف وأن لدي صلاحية تثبيت الرسائل.")
     return pin_rights
 
 
@@ -148,16 +100,11 @@ def can_promote(func):
     """مزخرف للتحقق من أن البوت يمكنه رفع وتنزيل المشرفين."""
     @wraps(func)
     def promote_rights(bot: Bot, update: Update, *args, **kwargs):
-        try:
-            if update.effective_chat.get_member(bot.id).can_promote_members:
-                return func(bot, update, *args, **kwargs)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in can_promote decorator for chat {update.effective_chat.id}: {e}")
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in can_promote decorator: {e}")
-
-        update.effective_message.reply_text("لا يمكنني رفع أو تنزيل المشرفين هنا! "
-                                            "تأكد من أنني مشرف وأن لدي صلاحية تعيين مشرفين جدد.")
+        if update.effective_chat.get_member(bot.id).can_promote_members:
+            return func(bot, update, *args, **kwargs)
+        else:
+            update.effective_message.reply_text("لا يمكنني رفع أو تنزيل المشرفين هنا! "
+                                                "تأكد من أنني مشرف وأن لدي صلاحية تعيين مشرفين جدد.")
     return promote_rights
 
 
@@ -165,16 +112,11 @@ def can_restrict(func):
     """مزخرف للتحقق من أن البوت يمكنه تقييد الأعضاء (حظر، كتم، إلخ)."""
     @wraps(func)
     def restrict_rights(bot: Bot, update: Update, *args, **kwargs):
-        try:
-            if update.effective_chat.get_member(bot.id).can_restrict_members:
-                return func(bot, update, *args, **kwargs)
-        except tel_error.Unauthorized as e:
-            LOGGER.warning(f"Unauthorized in can_restrict decorator for chat {update.effective_chat.id}: {e}")
-        except Exception as e:
-            LOGGER.error(f"Unexpected error in can_restrict decorator: {e}")
-
-        update.effective_message.reply_text("لا يمكنني تقييد الأعضاء هنا! "
-                                            "تأكد من أنني مشرف وأن لدي صلاحية تقييد الأعضاء.")
+        if update.effective_chat.get_member(bot.id).can_restrict_members:
+            return func(bot, update, *args, **kwargs)
+        else:
+            update.effective_message.reply_text("لا يمكنني تقييد الأعضاء هنا! "
+                                                "تأكد من أنني مشرف وأن لدي صلاحية تقييد الأعضاء.")
     return restrict_rights
 
 
