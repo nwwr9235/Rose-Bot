@@ -1,149 +1,125 @@
-# Note: chat_id's are stored as strings because the int is too large to be stored in a PSQL database.
 import threading
+from typing import Dict, List, Any, Optional
+from sqlalchemy import Column, String, Integer, Boolean, LargeBinary, Text, BigInteger, and_, desc
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.types import PickleType
 
-from sqlalchemy import Column, String, Boolean, UnicodeText, Integer, func, distinct
-
-from tg_bot.modules.helper_funcs.msg_types import Types
-from tg_bot.modules.sql import SESSION, BASE
+from tg_bot.modules.sql import BASE, SESSION
 
 
 class Notes(BASE):
     __tablename__ = "notes"
     chat_id = Column(String(14), primary_key=True)
-    name = Column(UnicodeText, primary_key=True)
-    value = Column(UnicodeText, nullable=False)
-    file = Column(UnicodeText)
-    is_reply = Column(Boolean, default=False)
-    has_buttons = Column(Boolean, default=False)
-    msgtype = Column(Integer, default=Types.BUTTON_TEXT.value)
+    name = Column(String(150), primary_key=True)
+    # تخزين قائمة الردود كـ PickleType (للبساطة)
+    replies = Column(PickleType, default=list)  # قائمة من القواميس، كل قاموس يمثل رداً
 
-    def __init__(self, chat_id, name, value, msgtype, file=None):
-        self.chat_id = str(chat_id)  # ensure string
+    def __init__(self, chat_id, name, replies=None):
+        self.chat_id = str(chat_id)
         self.name = name
-        self.value = value
-        self.msgtype = msgtype
-        self.file = file
+        self.replies = replies or []
 
     def __repr__(self):
-        return "<Note %s>" % self.name
-
-
-class Buttons(BASE):
-    __tablename__ = "note_urls"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), primary_key=True)
-    note_name = Column(UnicodeText, primary_key=True)
-    name = Column(UnicodeText, nullable=False)
-    url = Column(UnicodeText, nullable=False)
-    same_line = Column(Boolean, default=False)
-
-    def __init__(self, chat_id, note_name, name, url, same_line=False):
-        self.chat_id = str(chat_id)
-        self.note_name = note_name
-        self.name = name
-        self.url = url
-        self.same_line = same_line
+        return f"<Note {self.name} in {self.chat_id} ({len(self.replies)} replies)>"
 
 
 Notes.__table__.create(checkfirst=True)
-Buttons.__table__.create(checkfirst=True)
 
-NOTES_INSERTION_LOCK = threading.RLock()
-BUTTONS_INSERTION_LOCK = threading.RLock()
+INSERTION_LOCK = threading.RLock()
 
 
-def add_note_to_db(chat_id, note_name, note_data, msgtype, buttons=None, file=None):
-    if not buttons:
-        buttons = []
+# =================== دوال التعامل مع الردود المتعددة ===================
 
-    with NOTES_INSERTION_LOCK:
+def add_note_replies(chat_id: int, note_name: str, replies: List[Dict[str, Any]]):
+    """إضافة أو تحديث ملاحظة بقائمة ردود."""
+    with INSERTION_LOCK:
         prev = SESSION.query(Notes).get((str(chat_id), note_name))
         if prev:
-            with BUTTONS_INSERTION_LOCK:
-                prev_buttons = SESSION.query(Buttons).filter(Buttons.chat_id == str(chat_id),
-                                                             Buttons.note_name == note_name).all()
-                for btn in prev_buttons:
-                    SESSION.delete(btn)
-            SESSION.delete(prev)
-        note = Notes(str(chat_id), note_name, note_data or "", msgtype=msgtype.value, file=file)
-        SESSION.add(note)
+            prev.replies = replies
+            SESSION.add(prev)
+        else:
+            new_note = Notes(chat_id, note_name, replies)
+            SESSION.add(new_note)
         SESSION.commit()
 
-    for b_name, url, same_line in buttons:
-        add_note_button_to_db(chat_id, note_name, b_name, url, same_line)
 
-
-def get_note(chat_id, note_name):
+def get_note(chat_id: int, note_name: str) -> Optional[Dict[str, Any]]:
+    """الحصول على بيانات ملاحظة (قائمة الردود)."""
     try:
-        return SESSION.query(Notes).get((str(chat_id), note_name))
+        note = SESSION.query(Notes).get((str(chat_id), note_name))
+        if note:
+            return {"name": note.name, "replies": note.replies}
+        return None
     finally:
         SESSION.close()
 
 
-def rm_note(chat_id, note_name):
-    with NOTES_INSERTION_LOCK:
+def rm_note(chat_id: int, note_name: str) -> bool:
+    """حذف ملاحظة."""
+    with INSERTION_LOCK:
         note = SESSION.query(Notes).get((str(chat_id), note_name))
         if note:
-            with BUTTONS_INSERTION_LOCK:
-                buttons = SESSION.query(Buttons).filter(Buttons.chat_id == str(chat_id),
-                                                        Buttons.note_name == note_name).all()
-                for btn in buttons:
-                    SESSION.delete(btn)
-
             SESSION.delete(note)
             SESSION.commit()
             return True
-
-        else:
-            SESSION.close()
-            return False
+        return False
 
 
-def get_all_chat_notes(chat_id):
+def get_all_chat_notes(chat_id: int) -> List[Dict[str, Any]]:
+    """الحصول على قائمة بجميع الملاحظات في محادثة معينة."""
     try:
-        return SESSION.query(Notes).filter(Notes.chat_id == str(chat_id)).order_by(Notes.name.asc()).all()
+        return [{"name": x.name, "replies": x.replies} for x in
+                SESSION.query(Notes).filter(Notes.chat_id == str(chat_id)).all()]
     finally:
         SESSION.close()
 
 
-def add_note_button_to_db(chat_id, note_name, b_name, url, same_line):
-    with BUTTONS_INSERTION_LOCK:
-        button = Buttons(chat_id, note_name, b_name, url, same_line)
-        SESSION.add(button)
-        SESSION.commit()
-
-
-def get_buttons(chat_id, note_name):
-    try:
-        return SESSION.query(Buttons).filter(Buttons.chat_id == str(chat_id), Buttons.note_name == note_name).order_by(
-            Buttons.id).all()
-    finally:
-        SESSION.close()
-
-
-def num_notes():
+def num_notes() -> int:
+    """إجمالي عدد الملاحظات في جميع المحادثات."""
     try:
         return SESSION.query(Notes).count()
     finally:
         SESSION.close()
 
 
-def num_chats():
+def num_chats() -> int:
+    """عدد المحادثات التي تحتوي على ملاحظات."""
     try:
-        return SESSION.query(func.count(distinct(Notes.chat_id))).scalar()
+        return SESSION.query(Notes.chat_id).distinct().count()
     finally:
         SESSION.close()
 
 
-def migrate_chat(old_chat_id, new_chat_id):
-    with NOTES_INSERTION_LOCK:
-        chat_notes = SESSION.query(Notes).filter(Notes.chat_id == str(old_chat_id)).all()
-        for note in chat_notes:
+def migrate_chat(old_chat_id: int, new_chat_id: int):
+    """ترحيل بيانات مجموعة عند الترقية إلى supergroup."""
+    with INSERTION_LOCK:
+        notes = SESSION.query(Notes).filter(Notes.chat_id == str(old_chat_id)).all()
+        for note in notes:
             note.chat_id = str(new_chat_id)
-
-        with BUTTONS_INSERTION_LOCK:
-            chat_buttons = SESSION.query(Buttons).filter(Buttons.chat_id == str(old_chat_id)).all()
-            for btn in chat_buttons:
-                btn.chat_id = str(new_chat_id)
-
+            SESSION.add(note)
         SESSION.commit()
+
+
+# =================== دوال التوافق مع الإصدارات القديمة (اختياري) ===================
+
+def add_note_to_db(chat_id: int, note_name: str, reply_text: str, msgtype: int, buttons=None, file=None) -> None:
+    """
+    دالة توافقية للإصدار القديم.
+    تُستخدم بواسطة أمر /save لإنشاء ملاحظة برد واحد.
+    """
+    reply_data = {
+        "msgtype": msgtype,
+        "text": reply_text,
+        "file": file,
+        "buttons": buttons or [],
+        "has_markdown": True,
+    }
+    add_note_replies(chat_id, note_name, [reply_data])
+
+
+def get_buttons(chat_id: int, note_name: str) -> List:
+    """دالة توافقية (قديمة) - تستخرج الأزرار من أول رد."""
+    note = get_note(chat_id, note_name)
+    if note and note["replies"]:
+        return note["replies"][0].get("buttons", [])
+    return []
