@@ -4,16 +4,16 @@ import sys
 
 import telegram.ext as tg
 
-# تفعيل التسجيل
+# enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO)
 
 LOGGER = logging.getLogger(__name__)
 
-# إذا كان الإصدار أقل من 3.6، أوقف البوت.
+# if version < 3.6, stop bot.
 if sys.version_info[0] < 3 or sys.version_info[1] < 6:
-    LOGGER.error("يجب أن يكون لديك إصدار بايثون 3.6 على الأقل! العديد من الميزات تعتمد على هذا. البوت سيخرج.")
+    LOGGER.error("You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting.")
     quit(1)
 
 ENV = bool(os.environ.get('ENV', False))
@@ -23,7 +23,7 @@ if ENV:
     try:
         OWNER_ID = int(os.environ.get('OWNER_ID', None))
     except ValueError:
-        raise Exception("متغير OWNER_ID البيئي ليس رقمًا صالحًا.")
+        raise Exception("Your OWNER_ID env variable is not a valid integer.")
 
     MESSAGE_DUMP = os.environ.get('MESSAGE_DUMP', None)
     OWNER_USERNAME = os.environ.get("OWNER_USERNAME", None)
@@ -31,20 +31,20 @@ if ENV:
     try:
         SUDO_USERS = set(int(x) for x in os.environ.get("SUDO_USERS", "").split())
     except ValueError:
-        raise Exception("قائمة مستخدمي sudo لا تحتوي على أرقام صالحة.")
+        raise Exception("Your sudo users list does not contain valid integers.")
 
     try:
         SUPPORT_USERS = set(int(x) for x in os.environ.get("SUPPORT_USERS", "").split())
     except ValueError:
-        raise Exception("قائمة مستخدمي الدعم لا تحتوي على أرقام صالحة.")
+        raise Exception("Your support users list does not contain valid integers.")
 
     try:
         WHITELIST_USERS = set(int(x) for x in os.environ.get("WHITELIST_USERS", "").split())
     except ValueError:
-        raise Exception("قائمة المستخدمين المسموح لهم لا تحتوي على أرقام صالحة.")
+        raise Exception("Your whitelisted users list does not contain valid integers.")
 
     WEBHOOK = bool(os.environ.get('WEBHOOK', False))
-    URL = os.environ.get('URL', "")
+    URL = os.environ.get('URL', "")  # Does not contain token
     PORT = int(os.environ.get('PORT', 5000))
     CERT_PATH = os.environ.get("CERT_PATH")
 
@@ -69,7 +69,7 @@ else:
     try:
         OWNER_ID = int(Config.OWNER_ID)
     except ValueError:
-        raise Exception("متغير OWNER_ID ليس رقمًا صالحًا.")
+        raise Exception("Your OWNER_ID variable is not a valid integer.")
 
     MESSAGE_DUMP = Config.MESSAGE_DUMP
     OWNER_USERNAME = Config.OWNER_USERNAME
@@ -77,17 +77,17 @@ else:
     try:
         SUDO_USERS = set(int(x) for x in Config.SUDO_USERS or [])
     except ValueError:
-        raise Exception("قائمة مستخدمي sudo لا تحتوي على أرقام صالحة.")
+        raise Exception("Your sudo users list does not contain valid integers.")
 
     try:
         SUPPORT_USERS = set(int(x) for x in Config.SUPPORT_USERS or [])
     except ValueError:
-        raise Exception("قائمة مستخدمي الدعم لا تحتوي على أرقام صالحة.")
+        raise Exception("Your support users list does not contain valid integers.")
 
     try:
         WHITELIST_USERS = set(int(x) for x in Config.WHITELIST_USERS or [])
     except ValueError:
-        raise Exception("قائمة المستخدمين المسموح لهم لا تحتوي على أرقام صالحة.")
+        raise Exception("Your whitelisted users list does not contain valid integers.")
 
     WEBHOOK = Config.WEBHOOK
     URL = Config.URL
@@ -121,10 +121,10 @@ SUDO_USERS = list(SUDO_USERS)
 WHITELIST_USERS = list(WHITELIST_USERS)
 SUPPORT_USERS = list(SUPPORT_USERS)
 
-# التحميل في النهاية للتأكد من تعيين جميع المتغيرات السابقة
+# Load at end to ensure all prev variables have been set
 from tg_bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
 
-# تأكد أن معالج regex يمكنه أخذ وسائط إضافية
+# make sure the regex handler can take extra kwargs
 tg.RegexHandler = CustomRegexHandler
 
 if ALLOW_EXCL:
