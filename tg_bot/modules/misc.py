@@ -235,6 +235,7 @@ def info(bot: Bot, update: Update, args: List[str]):
     else:
         return
 
+    # بناء نص المعلومات
     text = "<b>User info</b>:" \
            "\nID: <code>{}</code>" \
            "\nFirst Name: {}".format(user.id, html.escape(user.first_name))
@@ -267,7 +268,24 @@ def info(bot: Bot, update: Update, args: List[str]):
         if mod_info:
             text += "\n\n" + mod_info
 
-    update.effective_message.reply_text(text, parse_mode=ParseMode.HTML)
+    # محاولة جلب صورة الملف الشخصي
+    try:
+        profile_photos = bot.get_user_profile_photos(user.id)
+        if profile_photos.total_count > 0:
+            # نأخذ أول صورة (أحدث صورة)
+            file_id = profile_photos.photos[0][-1].file_id  # آخر حجم في أول صورة
+            # إرسال الصورة مع النص كتعليق
+            update.effective_message.reply_photo(
+                photo=file_id,
+                caption=text,
+                parse_mode=ParseMode.HTML
+            )
+        else:
+            # لا توجد صورة، نرسل النص فقط
+            update.effective_message.reply_text(text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        # في حال حدوث خطأ (مثلاً user ليس لديه صورة أو مشكلة أخرى)، نرسل النص فقط
+        update.effective_message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 @run_async
