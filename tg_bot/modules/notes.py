@@ -1,125 +1,318 @@
-import threading
-from typing import Dict, List, Any, Optional
-from sqlalchemy import Column, String, Integer, Boolean, LargeBinary, Text, BigInteger, and_, desc
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.types import PickleType
+import re
+from io import BytesIO
+from typing import Optional, List
 
-from tg_bot.modules.sql import BASE, SESSION
+from telegram import MAX_MESSAGE_LENGTH, ParseMode, InlineKeyboardMarkup
+from telegram import Message, Update, Bot
+from telegram.error import BadRequest
+from telegram.ext import CommandHandler, RegexHandler
+from telegram.ext.dispatcher import run_async
+from telegram.utils.helpers import escape_markdown
+
+import tg_bot.modules.sql.notes_sql as sql
+from tg_bot import dispatcher, MESSAGE_DUMP, LOGGER
+from tg_bot.modules.disable import DisableAbleCommandHandler
+from tg_bot.modules.helper_funcs.chat_status import user_admin
+from tg_bot.modules.helper_funcs.misc import build_keyboard, revert_buttons
+from tg_bot.modules.helper_funcs.msg_types import get_note_type
+
+from tg_bot.modules.connection import connected
+
+FILE_MATCHER = re.compile(r"^###file_id(!photo)?###:(.*?)(?:\s|$)")
+
+ENUM_FUNC_MAP = {
+    sql.Types.TEXT.value: dispatcher.bot.send_message,
+    sql.Types.BUTTON_TEXT.value: dispatcher.bot.send_message,
+    sql.Types.STICKER.value: dispatcher.bot.send_sticker,
+    sql.Types.DOCUMENT.value: dispatcher.bot.send_document,
+    sql.Types.PHOTO.value: dispatcher.bot.send_photo,
+    sql.Types.AUDIO.value: dispatcher.bot.send_audio,
+    sql.Types.VOICE.value: dispatcher.bot.send_voice,
+    sql.Types.VIDEO.value: dispatcher.bot.send_video
+}
 
 
-class Notes(BASE):
-    __tablename__ = "notes"
-    chat_id = Column(String(14), primary_key=True)
-    name = Column(String(150), primary_key=True)
-    # تخزين قائمة الردود كـ PickleType (للبساطة)
-    replies = Column(PickleType, default=list)  # قائمة من القواميس، كل قاموس يمثل رداً
+# Do not async
+def get(bot, update, notename, show_none=True, no_format=False):
+    chat_id = update.effective_chat.id
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+    conn = connected(bot, update, chat, user.id, need_admin=False)
+    if not conn == False:
+        chat_id = conn
+        send_id = user.id
+    else:
+        chat_id = update.effective_chat.id
+        send_id = chat_id
 
-    def __init__(self, chat_id, name, replies=None):
-        self.chat_id = str(chat_id)
-        self.name = name
-        self.replies = replies or []
+    note = sql.get_note(chat_id, notename)
+    message = update.effective_message  # type: Optional[Message]
 
-    def __repr__(self):
-        return f"<Note {self.name} in {self.chat_id} ({len(self.replies)} replies)>"
-
-
-Notes.__table__.create(checkfirst=True)
-
-INSERTION_LOCK = threading.RLock()
-
-
-# =================== دوال التعامل مع الردود المتعددة ===================
-
-def add_note_replies(chat_id: int, note_name: str, replies: List[Dict[str, Any]]):
-    """إضافة أو تحديث ملاحظة بقائمة ردود."""
-    with INSERTION_LOCK:
-        prev = SESSION.query(Notes).get((str(chat_id), note_name))
-        if prev:
-            prev.replies = replies
-            SESSION.add(prev)
+    if note:
+        # If we're replying to a message, reply to that message (unless it's an error)
+        if message.reply_to_message:
+            reply_id = message.reply_to_message.message_id
         else:
-            new_note = Notes(chat_id, note_name, replies)
-            SESSION.add(new_note)
-        SESSION.commit()
+            reply_id = message.message_id
+
+        if note.is_reply:
+            if MESSAGE_DUMP:
+                try:
+                    bot.forward_message(chat_id=update.effective_chat.id, from_chat_id=MESSAGE_DUMP, message_id=note.value)
+                except BadRequest as excp:
+                    if excp.message == "Message to forward not found":
+                        message.reply_text("This message seems to have been lost - I'll remove it "
+                                           "from your notes list.")
+                        sql.rm_note(chat_id, notename)
+                    else:
+                        raise
+            else:
+                try:
+                    bot.forward_message(chat_id=update.effective_chat.id, from_chat_id=chat_id, message_id=note.value)
+                except BadRequest as excp:
+                    if excp.message == "Message to forward not found":
+                        message.reply_text("Looks like the original sender of this note has deleted "
+                                           "their message - sorry! Get your bot admin to start using a "
+                                           "message dump to avoid this. I'll remove this note from "
+                                           "your saved notes.")
+                        sql.rm_note(chat_id, notename)
+                    else:
+                        raise
+        else:
+            text = note.value
+            keyb = []
+            parseMode = ParseMode.MARKDOWN
+            buttons = sql.get_buttons(chat_id, notename)
+            should_preview_disabled = True
+            if no_format:
+                parseMode = None
+                text += revert_buttons(buttons)
+            else:
+                keyb = build_keyboard(buttons)
+                if "telegra.ph" in text or "youtu.be" in text:
+                    should_preview_disabled = False
+
+            keyboard = InlineKeyboardMarkup(keyb)
+
+            try:
+                if note.msgtype in (sql.Types.BUTTON_TEXT, sql.Types.TEXT):
+
+                    bot.send_message(chat_id, text, reply_to_message_id=reply_id,
+                                     parse_mode=parseMode, disable_web_page_preview=should_preview_disabled,
+                                     reply_markup=keyboard)
+                else:
+                    ENUM_FUNC_MAP[note.msgtype](chat_id, note.file, caption=text, reply_to_message_id=reply_id,
+                                                parse_mode=parseMode, disable_web_page_preview=should_preview_disabled,
+                                                reply_markup=keyboard)
+
+            except BadRequest as excp:
+                if excp.message == "Entity_mention_user_invalid":
+                    message.reply_text("Looks like you tried to mention someone I've never seen before. If you really "
+                                       "want to mention them, forward one of their messages to me, and I'll be able "
+                                       "to tag them!")
+                elif FILE_MATCHER.match(note.value):
+                    message.reply_text("This note was an incorrectly imported file from another bot - I can't use "
+                                       "it. If you really need it, you'll have to save it again. In "
+                                       "the meantime, I'll remove it from your notes list.")
+                    sql.rm_note(chat_id, notename)
+                else:
+                    message.reply_text("This note could not be sent, as it is incorrectly formatted. Ask in "
+                                       "@keralabots if you can't figure out why!")
+                    LOGGER.exception("Could not parse message #%s in chat %s", notename, str(chat_id))
+                    LOGGER.warning("Message was: %s", str(note.value))
+        return
+    elif show_none:
+        message.reply_text("This note doesn't exist")
 
 
-def get_note(chat_id: int, note_name: str) -> Optional[Dict[str, Any]]:
-    """الحصول على بيانات ملاحظة (قائمة الردود)."""
-    try:
-        note = SESSION.query(Notes).get((str(chat_id), note_name))
-        if note:
-            return {"name": note.name, "replies": note.replies}
-        return None
-    finally:
-        SESSION.close()
+@run_async
+def cmd_get(bot: Bot, update: Update, args: List[str]):
+    if len(args) >= 2 and args[1].lower() == "noformat":
+        get(bot, update, args[0], show_none=True, no_format=True)
+    elif len(args) >= 1:
+        get(bot, update, args[0], show_none=True)
+    else:
+        update.effective_message.reply_text("Get rekt")
 
 
-def rm_note(chat_id: int, note_name: str) -> bool:
-    """حذف ملاحظة."""
-    with INSERTION_LOCK:
-        note = SESSION.query(Notes).get((str(chat_id), note_name))
-        if note:
-            SESSION.delete(note)
-            SESSION.commit()
-            return True
-        return False
+@run_async
+def hash_get(bot: Bot, update: Update):
+    message = update.effective_message.text
+    fst_word = message.split()[0]
+    no_hash = fst_word[1:]
+    get(bot, update, no_hash, show_none=False)
 
 
-def get_all_chat_notes(chat_id: int) -> List[Dict[str, Any]]:
-    """الحصول على قائمة بجميع الملاحظات في محادثة معينة."""
-    try:
-        return [{"name": x.name, "replies": x.replies} for x in
-                SESSION.query(Notes).filter(Notes.chat_id == str(chat_id)).all()]
-    finally:
-        SESSION.close()
+@run_async
+@user_admin
+def save(bot: Bot, update: Update):
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+    conn = connected(bot, update, chat, user.id)
+    if not conn == False:
+        chat_id = conn
+        chat_name = dispatcher.bot.getChat(conn).title
+    else:
+        chat_id = update.effective_chat.id
+        if chat.type == "private":
+            chat_name = "local notes"
+        else:
+            chat_name = chat.title
+
+    msg = update.effective_message  # type: Optional[Message]
+
+    note_name, text, data_type, content, buttons = get_note_type(msg)
+
+    if data_type is None:
+        msg.reply_text("Dude, there's no note")
+        return
 
 
-def num_notes() -> int:
-    """إجمالي عدد الملاحظات في جميع المحادثات."""
-    try:
-        return SESSION.query(Notes).count()
-    finally:
-        SESSION.close()
+    if len(text.strip()) == 0:
+        text = note_name
+
+    sql.add_note_to_db(chat_id, note_name, text, data_type, buttons=buttons, file=content)
+
+    msg.reply_text(
+        "OK, Added {note_name} in *{chat_name}*.\nGet it with /get {note_name}, or #{note_name}".format(note_name=note_name, chat_name=chat_name), parse_mode=ParseMode.MARKDOWN)
+
+    if msg.reply_to_message and msg.reply_to_message.from_user.is_bot:
+        if text:
+            msg.reply_text("Seems like you're trying to save a message from a bot. Unfortunately, "
+                           "bots can't forward bot messages, so I can't save the exact message. "
+                           "\nI'll save all the text I can, but if you want more, you'll have to "
+                           "forward the message yourself, and then save it.")
+        else:
+            msg.reply_text("Bots are kinda handicapped by telegram, making it hard for bots to "
+                           "interact with other bots, so I can't save this message "
+                           "like I usually would - do you mind forwarding it and "
+                           "then saving that new message? Thanks!")
+        return
 
 
-def num_chats() -> int:
-    """عدد المحادثات التي تحتوي على ملاحظات."""
-    try:
-        return SESSION.query(Notes.chat_id).distinct().count()
-    finally:
-        SESSION.close()
+@run_async
+@user_admin
+def clear(bot: Bot, update: Update, args: List[str]):
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+    conn = connected(bot, update, chat, user.id)
+    if not conn == False:
+        chat_id = conn
+        chat_name = dispatcher.bot.getChat(conn).title
+    else:
+        chat_id = update.effective_chat.id
+        if chat.type == "private":
+            chat_name = "local notes"
+        else:
+            chat_name = chat.title
+
+    if len(args) >= 1:
+        notename = args[0]
+
+        if sql.rm_note(chat_id, notename):
+            update.effective_message.reply_text("Successfully removed note.")
+        else:
+            update.effective_message.reply_text("That's not a note in my database!")
 
 
-def migrate_chat(old_chat_id: int, new_chat_id: int):
-    """ترحيل بيانات مجموعة عند الترقية إلى supergroup."""
-    with INSERTION_LOCK:
-        notes = SESSION.query(Notes).filter(Notes.chat_id == str(old_chat_id)).all()
-        for note in notes:
-            note.chat_id = str(new_chat_id)
-            SESSION.add(note)
-        SESSION.commit()
+@run_async
+def list_notes(bot: Bot, update: Update):
+    chat_id = update.effective_chat.id
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+    conn = connected(bot, update, chat, user.id, need_admin=False)
+    if not conn == False:
+        chat_id = conn
+        chat_name = dispatcher.bot.getChat(conn).title
+        msg = "*Notes in {}:*\n".format(chat_name)
+    else:
+        chat_id = update.effective_chat.id
+        if chat.type == "private":
+            chat_name = ""
+            msg = "*Local Notes:*\n"
+        else:
+            chat_name = chat.title
+            msg = "*Notes in {}:*\n".format(chat_name)
+
+    note_list = sql.get_all_chat_notes(chat_id)
+
+    for note in note_list:
+        note_name = escape_markdown(" - {}\n".format(note.name))
+        if len(msg) + len(note_name) > MAX_MESSAGE_LENGTH:
+            update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+            msg = ""
+        msg += note_name
+
+    if msg == "*Notes in chat:*\n":
+        update.effective_message.reply_text("No notes in this chat!")
+
+    elif len(msg) != 0:
+        update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
-# =================== دوال التوافق مع الإصدارات القديمة (اختياري) ===================
+def __import_data__(chat_id, data):
+    failures = []
+    for notename, notedata in data.get('extra', {}).items():
+        match = FILE_MATCHER.match(notedata)
 
-def add_note_to_db(chat_id: int, note_name: str, reply_text: str, msgtype: int, buttons=None, file=None) -> None:
-    """
-    دالة توافقية للإصدار القديم.
-    تُستخدم بواسطة أمر /save لإنشاء ملاحظة برد واحد.
-    """
-    reply_data = {
-        "msgtype": msgtype,
-        "text": reply_text,
-        "file": file,
-        "buttons": buttons or [],
-        "has_markdown": True,
-    }
-    add_note_replies(chat_id, note_name, [reply_data])
+        if match:
+            failures.append(notename)
+            notedata = notedata[match.end():].strip()
+            if notedata:
+                sql.add_note_to_db(chat_id, notename[1:], notedata, sql.Types.TEXT)
+        else:
+            sql.add_note_to_db(chat_id, notename[1:], notedata, sql.Types.TEXT)
+
+    if failures:
+        with BytesIO(str.encode("\n".join(failures))) as output:
+            output.name = "failed_imports.txt"
+            dispatcher.bot.send_document(chat_id, document=output, filename="failed_imports.txt",
+                                         caption="These files/photos failed to import due to originating "
+                                                 "from another bot. This is a telegram API restriction, and can't "
+                                                 "be avoided. Sorry for the inconvenience!")
 
 
-def get_buttons(chat_id: int, note_name: str) -> List:
-    """دالة توافقية (قديمة) - تستخرج الأزرار من أول رد."""
-    note = get_note(chat_id, note_name)
-    if note and note["replies"]:
-        return note["replies"][0].get("buttons", [])
-    return []_HANDLER)
+def __stats__():
+    return "{} notes, across {} chats.".format(sql.num_notes(), sql.num_chats())
+
+
+def __migrate__(old_chat_id, new_chat_id):
+    sql.migrate_chat(old_chat_id, new_chat_id)
+
+
+def __chat_settings__(chat_id, user_id):
+    notes = sql.get_all_chat_notes(chat_id)
+    return "There are `{}` notes in this chat.".format(len(notes))
+
+
+__help__ = """
+ - /get <notename>: get the note with this notename
+ - #<notename>: same as /get
+ - /notes or /saved: list all saved notes in this chat
+
+If you would like to retrieve the contents of a note without any formatting, use `/get <notename> noformat`. This can \
+be useful when updating a current note.
+
+*Admin only:*
+ - /save <notename> <notedata>: saves notedata as a note with name notename
+A button can be added to a note by using standard markdown link syntax - the link should just be prepended with a \
+`buttonurl:` section, as such: `[somelink](buttonurl:example.com)`. Check /markdownhelp for more info.
+ - /save <notename>: save the replied message as a note with name notename
+ - /clear <notename>: clear note with this name
+"""
+
+__mod_name__ = "Notes"
+
+GET_HANDLER = CommandHandler("get", cmd_get, pass_args=True)
+HASH_GET_HANDLER = RegexHandler(r"^#[^\s]+", hash_get)
+
+SAVE_HANDLER = CommandHandler("save", save)
+DELETE_HANDLER = CommandHandler("clear", clear, pass_args=True)
+
+LIST_HANDLER = DisableAbleCommandHandler(["notes", "saved"], list_notes, admin_ok=True)
+
+dispatcher.add_handler(GET_HANDLER)
+dispatcher.add_handler(SAVE_HANDLER)
+dispatcher.add_handler(LIST_HANDLER)
+dispatcher.add_handler(DELETE_HANDLER)
+dispatcher.add_handler(HASH_GET_HANDLER)

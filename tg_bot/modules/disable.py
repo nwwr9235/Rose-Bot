@@ -1,10 +1,9 @@
 from typing import Union, List, Optional
 
 from future.utils import string_types
-from telegram import Update, Chat, User
-from telegram.constants import ParseMode
-from telegram.ext import CommandHandler, MessageHandler, filters
-from telegram.helpers import escape_markdown
+from telegram import ParseMode, Update, Bot, Chat, User
+from telegram.ext import CommandHandler, RegexHandler, Filters
+from telegram.utils.helpers import escape_markdown
 
 from tg_bot import dispatcher
 from tg_bot.modules.helper_funcs.handlers import CMD_STARTERS
@@ -12,8 +11,11 @@ from tg_bot.modules.helper_funcs.misc import is_module_loaded
 
 FILENAME = __name__.rsplit(".", 1)[-1]
 
+# If module is due to be loaded, then setup all the magical handlers
 if is_module_loaded(FILENAME):
-    from tg_bot.modules.helper_funcs.chat_status import is_user_admin
+    from tg_bot.modules.helper_funcs.chat_status import user_admin, is_user_admin
+    from telegram.ext.dispatcher import run_async
+
     from tg_bot.modules.sql import disable_sql as sql
 
     DISABLE_CMDS = []
@@ -33,42 +35,39 @@ if is_module_loaded(FILENAME):
                 if admin_ok:
                     ADMIN_CMDS.extend(command)
 
-        async def check_update(self, update: Update) -> Optional[Union[bool, object]]:
-            chat = update.effective_chat
-            user = update.effective_user
+        def check_update(self, update):
+            chat = update.effective_chat  # type: Optional[Chat]
+            user = update.effective_user  # type: Optional[User]
+            if super().check_update(update):
+                # Should be safe since check_update passed.
+                command = update.effective_message.text_html.split(None, 1)[0][1:].split('@')[0]
 
-            # أولاً، تحقق من المطابقة باستخدام طريقة الفئة الأساسية
-            if not await super().check_update(update):
-                return False
+                # disabled, admincmd, user admin
+                if sql.is_command_disabled(chat.id, command):
+                    return command in ADMIN_CMDS and is_user_admin(chat, user.id)
 
-            # يجب أن يكون آمناً لأن check_update مرت
-            command = update.effective_message.text.split(None, 1)[0][1:].split('@')[0]
-
-            # تحقق إذا كان الأمر معطلاً
-            if sql.is_command_disabled(chat.id, command):
-                # إذا كان الأمر معطلاً، اسمح فقط إذا كان الأمر من ADMIN_CMDS والمستخدم مشرف
-                if command in ADMIN_CMDS and await is_user_admin(chat, user.id):
+                # not disabled
+                else:
                     return True
-                return False
 
-            # الأمر غير معطل
-            return True
+            return False
 
 
-    class DisableAbleRegexHandler(MessageHandler):
+    class DisableAbleRegexHandler(RegexHandler):
         def __init__(self, pattern, callback, friendly="", **kwargs):
-            super().__init__(filters.Regex(pattern), callback, **kwargs)
+            super().__init__(pattern, callback, **kwargs)
             DISABLE_OTHER.append(friendly or pattern)
             self.friendly = friendly or pattern
 
-        async def check_update(self, update: Update) -> Optional[Union[bool, object]]:
+        def check_update(self, update):
             chat = update.effective_chat
-            return await super().check_update(update) and not sql.is_command_disabled(chat.id, self.friendly)
+            return super().check_update(update) and not sql.is_command_disabled(chat.id, self.friendly)
 
 
-    async def disable(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat = update.effective_chat
-        args = context.args
+    @run_async
+    @user_admin
+    def disable(bot: Bot, update: Update, args: List[str]):
+        chat = update.effective_chat  # type: Optional[Chat]
         if len(args) >= 1:
             disable_cmd = args[0]
             if disable_cmd.startswith(CMD_STARTERS):
@@ -76,81 +75,92 @@ if is_module_loaded(FILENAME):
 
             if disable_cmd in set(DISABLE_CMDS + DISABLE_OTHER):
                 sql.disable_command(chat.id, disable_cmd)
-                await update.effective_message.reply_text(f"تم تعطيل استخدام `{disable_cmd}`", parse_mode=ParseMode.MARKDOWN)
+                update.effective_message.reply_text("Disabled the use of `{}`".format(disable_cmd),
+                                                    parse_mode=ParseMode.MARKDOWN)
             else:
-                await update.effective_message.reply_text("لا يمكن تعطيل هذا الأمر")
+                update.effective_message.reply_text("That command can't be disabled")
+
         else:
-            await update.effective_message.reply_text("ماذا تريد تعطيل؟")
+            update.effective_message.reply_text("What should I disable?")
 
 
-    async def enable(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat = update.effective_chat
-        args = context.args
+    @run_async
+    @user_admin
+    def enable(bot: Bot, update: Update, args: List[str]):
+        chat = update.effective_chat  # type: Optional[Chat]
         if len(args) >= 1:
             enable_cmd = args[0]
             if enable_cmd.startswith(CMD_STARTERS):
                 enable_cmd = enable_cmd[1:]
 
             if sql.enable_command(chat.id, enable_cmd):
-                await update.effective_message.reply_text(f"تم تفعيل استخدام `{enable_cmd}`", parse_mode=ParseMode.MARKDOWN)
+                update.effective_message.reply_text("Enabled the use of `{}`".format(enable_cmd),
+                                                    parse_mode=ParseMode.MARKDOWN)
             else:
-                await update.effective_message.reply_text("هل هذا الأمر معطل أصلاً؟")
+                update.effective_message.reply_text("Is that even disabled?")
+
         else:
-            await update.effective_message.reply_text("ماذا تريد تفعيل؟")
+            update.effective_message.reply_text("What should I enable?")
 
 
-    async def list_cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    @run_async
+    @user_admin
+    def list_cmds(bot: Bot, update: Update):
         if DISABLE_CMDS + DISABLE_OTHER:
             result = ""
             for cmd in set(DISABLE_CMDS + DISABLE_OTHER):
-                result += f" - `{escape_markdown(cmd)}`\n"
-            await update.effective_message.reply_text(f"الأوامر التالية قابلة للتبديل:\n{result}", parse_mode=ParseMode.MARKDOWN)
+                result += " - `{}`\n".format(escape_markdown(cmd))
+            update.effective_message.reply_text("The following commands are toggleable:\n{}".format(result),
+                                                parse_mode=ParseMode.MARKDOWN)
         else:
-            await update.effective_message.reply_text("لا توجد أوامر يمكن تعطيلها.")
+            update.effective_message.reply_text("No commands can be disabled.")
 
 
+    # do not async
     def build_curr_disabled(chat_id: Union[str, int]) -> str:
         disabled = sql.get_all_disabled(chat_id)
         if not disabled:
-            return "لا توجد أوامر معطلة!"
+            return "No commands are disabled!"
+
         result = ""
         for cmd in disabled:
-            result += f" - `{escape_markdown(cmd)}`\n"
-        return f"الأوامر التالية مقيدة حاليًا:\n{result}"
+            result += " - `{}`\n".format(escape_markdown(cmd))
+        return "The following commands are currently restricted:\n{}".format(result)
 
 
-    async def commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    @run_async
+    def commands(bot: Bot, update: Update):
         chat = update.effective_chat
-        await update.effective_message.reply_text(build_curr_disabled(chat.id), parse_mode=ParseMode.MARKDOWN)
+        update.effective_message.reply_text(build_curr_disabled(chat.id), parse_mode=ParseMode.MARKDOWN)
 
 
     def __stats__():
-        return f"{sql.num_disabled()} عنصر معطل، عبر {sql.num_chats()} مجموعة."
+        return "{} disabled items, across {} chats.".format(sql.num_disabled(), sql.num_chats())
 
 
     def __migrate__(old_chat_id, new_chat_id):
         sql.migrate_chat(old_chat_id, new_chat_id)
 
 
-    async def __chat_settings__(chat_id: int, user_id: int) -> str:
+    def __chat_settings__(chat_id, user_id):
         return build_curr_disabled(chat_id)
 
 
-    __mod_name__ = "التعطيل"
+    __mod_name__ = "Disable"
 
     __help__ = """
-- /cmds: عرض حالة الأوامر المعطلة حاليًا
+ - /cmds: check the current status of disabled commands
 
-*للمشرفين فقط:*
-- /enable <اسم الأمر>: تفعيل ذلك الأمر
-- /disable <اسم الأمر>: تعطيل ذلك الأمر
-- /listcmds: عرض جميع الأوامر القابلة للتبديل
+*Admin only:*
+ - /enable <cmd name>: enable that command
+ - /disable <cmd name>: disable that command
+ - /listcmds: list all possible toggleable commands
     """
 
-    DISABLE_HANDLER = CommandHandler("disable", disable, filters=filters.ChatType.GROUPS)
-    ENABLE_HANDLER = CommandHandler("enable", enable, filters=filters.ChatType.GROUPS)
-    COMMANDS_HANDLER = CommandHandler(["cmds", "disabled"], commands, filters=filters.ChatType.GROUPS)
-    TOGGLE_HANDLER = CommandHandler("listcmds", list_cmds, filters=filters.ChatType.GROUPS)
+    DISABLE_HANDLER = CommandHandler("disable", disable, pass_args=True, filters=Filters.group)
+    ENABLE_HANDLER = CommandHandler("enable", enable, pass_args=True, filters=Filters.group)
+    COMMANDS_HANDLER = CommandHandler(["cmds", "disabled"], commands, filters=Filters.group)
+    TOGGLE_HANDLER = CommandHandler("listcmds", list_cmds, filters=Filters.group)
 
     dispatcher.add_handler(DISABLE_HANDLER)
     dispatcher.add_handler(ENABLE_HANDLER)
@@ -159,4 +169,4 @@ if is_module_loaded(FILENAME):
 
 else:
     DisableAbleCommandHandler = CommandHandler
-    DisableAbleRegexHandler = MessageHandler
+    DisableAbleRegexHandler = RegexHandler
