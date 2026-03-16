@@ -321,14 +321,41 @@ def arabic_demote(bot: Bot, update: Update):
         msg.reply_text("لم أتمكن من العثور على المستخدم.")
         return
 
-    if not can_demote(chat, user.id, target_user_id):
-        msg.reply_text("ليس لديك صلاحية لتنزيل هذا المستخدم.")
+    # التحقق من وجود رتبة للمستخدم المستهدف
+    target_rank = ranks_sql.get_rank(chat.id, target_user_id)
+    if target_rank is None:
+        msg.reply_text("هذا المستخدم ليس له رتبة داخلية.")
         return
 
+    # التحقق من الصلاحية
+    if not can_demote(chat, user.id, target_user_id):
+        # تحديد سبب عدم الصلاحية لإعطاء رسالة مفيدة
+        if is_real_creator(chat, user.id):
+            # المالك الحقيقي لديه صلاحية دائمًا، لكن الوصول إلى هنا يعني خطأ آخر
+            pass
+        else:
+            actor_rank = ranks_sql.get_rank(chat.id, user.id)
+            if actor_rank == "ownerplus":
+                # المفروض أن ownerplus يمكنه تنزيل أي شخص، لكنه وصل إلى هنا، ربما target_rank غير مسموح؟
+                msg.reply_text("لا يمكن تنزيل هذا المستخدم ربما لأنه أعلى رتبة.")
+            elif actor_rank == "owner":
+                if target_rank in ("ownerplus", "owner"):
+                    msg.reply_text("لا يمكنك تنزيل مالك أساسي أو مالك آخر.")
+                else:
+                    msg.reply_text("ليس لديك صلاحية لتنزيل هذا المستخدم.")
+            elif actor_rank == "creator":
+                if target_rank in ("ownerplus", "owner", "creator"):
+                    msg.reply_text("لا يمكنك تنزيل رتب أعلى منك أو مساوية لك.")
+                else:
+                    msg.reply_text("ليس لديك صلاحية لتنزيل هذا المستخدم.")
+            else:
+                msg.reply_text("ليس لديك صلاحية لتنزيل أي مستخدم.")
+        return
+
+    # تنفيذ التنزيل
     ranks_sql.remove_rank(chat.id, target_user_id)
     target_name = bot.get_chat(target_user_id).first_name
     msg.reply_text(f"تم تنزيل {target_name} (حذف الرتبة).")
-
 
 @run_async
 def arabic_show_rank(bot: Bot, update: Update):
