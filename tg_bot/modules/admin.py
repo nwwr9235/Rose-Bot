@@ -376,19 +376,16 @@ ADMINLIST_HANDLER = DisableAbleCommandHandler(["adminlist", "staff"], adminlist,
 
 # معالجات الأوامر العربية
 ARABIC_PROMOTE_HANDLER = MessageHandler(
-    Filters.regex(r'^\s*رفع\s+@\w+\s+(مالك اساسي|مالك|منشئ|مدير|اداري|مميز)\s*$'),
-    arabic_promote,
-    filters=Filters.group
+    Filters.regex(r'^\s*رفع\s+@\w+\s+(مالك اساسي|مالك|منشئ|مدير|اداري|مميز)\s*$') & Filters.group,
+    arabic_promote
 )
 ARABIC_DEMOTE_HANDLER = MessageHandler(
-    Filters.regex(r'^\s*تنزيل\s+@\w+\s*$'),
-    arabic_demote,
-    filters=Filters.group
+    Filters.regex(r'^\s*تنزيل\s+@\w+\s*$') & Filters.group,
+    arabic_demote
 )
 ARABIC_SHOW_RANK_HANDLER = MessageHandler(
-    Filters.regex(r'^\s*(رتبتي|رتبة\s+@\w+)\s*$'),
-    arabic_show_rank,
-    filters=Filters.group
+    Filters.regex(r'^\s*(رتبتي|رتبة\s+@\w+)\s*$') & Filters.group,
+    arabic_show_rank
 )
 
 dispatcher.add_handler(PIN_HANDLER)
