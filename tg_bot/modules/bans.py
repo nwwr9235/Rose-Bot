@@ -1,17 +1,16 @@
 import html
 from typing import Optional, List
 
-from tg_bot.modules.helper_funcs.chat_status import can_ban
 from telegram import Message, Chat, Update, Bot, User
 from telegram.error import BadRequest
 from telegram.ext import run_async, CommandHandler, Filters
 from telegram.utils.helpers import mention_html
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, User, CallbackQuery
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, CallbackQuery
 
 from tg_bot import dispatcher, BAN_STICKER, LOGGER
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.chat_status import bot_admin, user_admin, is_user_ban_protected, can_restrict, \
-    is_user_admin, is_user_in_chat, is_bot_admin, _TELE_GRAM_ID_S
+    is_user_admin, is_user_in_chat, is_bot_admin
 from tg_bot.modules.helper_funcs.extraction import extract_user_and_text
 from tg_bot.modules.helper_funcs.string_handling import extract_time
 from tg_bot.modules.log_channel import loggable
@@ -46,25 +45,15 @@ RUNBAN_ERRORS = {
 }
 
 
-
+@run_async
+@bot_admin
+@can_restrict
+@user_admin
+@loggable
 def ban(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat
-    user = update.effective_user
-    message = update.effective_message
-
-    user_id, reason = extract_user_and_text(message, args)
-    if not user_id:
-        message.reply_text("You don't seem to be referring to a user.")
-        return ""
-
-    # التحقق من الصلاحية
-    if not can_ban(chat.id, user.id, user_id):
-        message.reply_text("ليس لديك صلاحية لحظر هذا المستخدم.")
-        return ""
-
-    # ... باقي الكود
-        ):
-            return
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+    message = update.effective_message  # type: Optional[Message]
 
     user_id, reason = extract_user_and_text(message, args)
 
@@ -112,7 +101,6 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
             # Do not reply
             reply = "{} ന് ബണ്ണ് കൊടുത്തു വിട്ടിട്ടുണ്ട് !".format(mention_html(member.user.id, member.user.first_name))
             bot.send_message(chat_id, reply, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-#           message.reply_text('Banned!', quote=False)
             return log
         else:
             LOGGER.warning(update)
@@ -132,14 +120,6 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
     message = update.effective_message  # type: Optional[Message]
-
-    if user.id not in _TELE_GRAM_ID_S:
-        admin_user = chat.get_member(user.id)
-        if not (
-            admin_user.can_restrict_members or
-            admin_user.status == "creator"
-        ):
-            return
 
     user_id, reason = extract_user_and_text(message, args)
 
@@ -219,14 +199,6 @@ def kick(bot: Bot, update: Update, args: List[str]) -> str:
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
     message = update.effective_message  # type: Optional[Message]
-
-    if user.id not in _TELE_GRAM_ID_S:
-        admin_user = chat.get_member(user.id)
-        if not (
-            admin_user.can_restrict_members or
-            admin_user.status == "creator"
-        ):
-            return
 
     user_id, reason = extract_user_and_text(message, args)
 
