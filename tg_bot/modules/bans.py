@@ -47,19 +47,21 @@ RUNBAN_ERRORS = {
 
 
 
-@run_async
-@bot_admin
-@can_restrict
-@loggable
 def ban(bot: Bot, update: Update, args: List[str]) -> str:
     chat = update.effective_chat
     user = update.effective_user
     message = update.effective_message
 
-    # التحقق من صلاحية المستخدم الذي أرسل الأمر
-    if not can_ban(chat.id, user.id, target_user_id):  # تحتاج target_user_id
+    user_id, reason = extract_user_and_text(message, args)
+    if not user_id:
+        message.reply_text("You don't seem to be referring to a user.")
+        return ""
+
+    # التحقق من الصلاحية
+    if not can_ban(chat.id, user.id, user_id):
         message.reply_text("ليس لديك صلاحية لحظر هذا المستخدم.")
         return ""
+
     # ... باقي الكود
         ):
             return
