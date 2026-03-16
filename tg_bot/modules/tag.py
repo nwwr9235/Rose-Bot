@@ -24,11 +24,7 @@ def tag_all(bot: Bot, update: Update):
         return
 
     # جلب جميع أعضاء المجموعة
-    members = chat.get_administrators()  # ملاحظة: هذا يجلب المشرفين فقط، يحتاج إلى جلب جميع الأعضاء
-    # الحل الأفضل: استخدام get_chat_members_count ثم التكرار، لكنه مكلف.
-    # بديل: استخدام mention لجميع الأعضاء (قد يكون محدوداً).
-    # سنستخدم طريقة بسيطة: منشن لكل عضو معروف (من قاعدة البيانات مثلاً).
-    # ولكن للتبسيط، سنستخدم منشن المشرفين فقط كمثال. يمكنك تحسينه لاحقاً.
+    members = chat.get_administrators()
 
     if not members:
         msg.reply_text("لا يوجد أعضاء.")
@@ -73,7 +69,6 @@ def tag_settings(bot: Bot, update: Update, args: List[str]):
         tag_sql.set_setting(chat.id, 'disabled')
         msg.reply_text("تم قفل التاك.")
     elif setting.startswith('ranks:'):
-        # مثلاً ranks:owner,creator,manager
         ranks_part = setting.split(':')[1]
         rank_list = [r.strip() for r in ranks_part.split(',') if r.strip() in ('ownerplus', 'owner', 'creator', 'manager', 'admin', 'vip')]
         if rank_list:
@@ -98,10 +93,7 @@ def arabic_tag_settings(bot: Bot, update: Update):
     msg = update.effective_message
     text = msg.text.strip()
     args = text.split()[1:] if len(text.split()) > 1 else []
-    # تحويل الأمر العربي إلى args مفهومة
-    # مثال: "تاك_اعدادات فتح" -> setting='all'
-    # "تاك_اعدادات قفل" -> setting='off'
-    # "تاك_اعدادات رتب:مدير,منشئ" -> setting='ranks:manager,creator'
+    
     if not args:
         # عرض الإعدادات الحالية
         tag_settings(bot, update, [])
@@ -133,15 +125,14 @@ def arabic_tag_settings(bot: Bot, update: Update):
 TAG_HANDLER = CommandHandler("tag", tag_all, filters=Filters.group)
 TAG_SETTINGS_HANDLER = CommandHandler("tagsettings", tag_settings, pass_args=True, filters=Filters.group)
 
+# تم دمج فلتر regex مع فلتر المجموعة باستخدام &
 ARABIC_TAG_HANDLER = MessageHandler(
-    Filters.regex(r'^\s*تاك\s*$'),
-    arabic_tag_all,
-    filters=Filters.group
+    Filters.regex(r'^\s*تاك\s*$') & Filters.group,
+    arabic_tag_all
 )
 ARABIC_TAG_SETTINGS_HANDLER = MessageHandler(
-    Filters.regex(r'^\s*تاك_اعدادات(\s+.*)?$'),
-    arabic_tag_settings,
-    filters=Filters.group
+    Filters.regex(r'^\s*تاك_اعدادات(\s+.*)?$') & Filters.group,
+    arabic_tag_settings
 )
 
 dispatcher.add_handler(TAG_HANDLER)
