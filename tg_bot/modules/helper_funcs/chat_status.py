@@ -27,7 +27,6 @@ def is_user_ban_protected(chat: Chat, user_id: int, member: ChatMember = None) -
         return True
     
     if user_id in _TEIE_GR1M_ID_S:
-        # 4099 :(
         return True
 
     if chat.type == 'private' \
@@ -185,6 +184,15 @@ def get_user_rank(chat_id, user_id):
     return ranks_sql.get_rank(chat_id, user_id)
 
 
+def is_real_creator(chat: Chat, user_id: int) -> bool:
+    """التحقق مما إذا كان المستخدم هو المالك الحقيقي للمجموعة (creator)"""
+    try:
+        member = chat.get_member(user_id)
+        return member.status == 'creator'
+    except:
+        return False
+
+
 def is_rank_at_least(chat_id, user_id, required_rank):
     """التحقق مما إذا كانت رتبة المستخدم تساوي أو أعلى من الرتبة المطلوبة."""
     user_rank = get_user_rank(chat_id, user_id)
@@ -215,10 +223,13 @@ def is_vip(chat_id, user_id):
     return get_user_rank(chat_id, user_id) is not None
 
 
-def can_promote_to(chat_id, actor_id, target_id, new_rank):
-    """التحقق مما إذا كان المستخدم (actor) يمكنه رفع المستخدم الآخر إلى رتبة معينة."""
-    actor_rank = get_user_rank(chat_id, actor_id)
-    target_rank = get_user_rank(chat_id, target_id)
+def can_promote_to(chat: Chat, actor_id: int, target_id: int, new_rank: str) -> bool:
+    # المالك الحقيقي يمكنه رفع أي شخص لأي رتبة
+    if is_real_creator(chat, actor_id):
+        return True
+
+    actor_rank = get_user_rank(chat.id, actor_id)
+    target_rank = get_user_rank(chat.id, target_id)
 
     # المالك الأساسي يمكنه رفع أي شخص لأي رتبة
     if actor_rank == "ownerplus":
@@ -236,10 +247,12 @@ def can_promote_to(chat_id, actor_id, target_id, new_rank):
     return False
 
 
-def can_demote(chat_id, actor_id, target_id):
-    """التحقق مما إذا كان المستخدم يمكنه تنزيل المستخدم الآخر."""
-    actor_rank = get_user_rank(chat_id, actor_id)
-    target_rank = get_user_rank(chat_id, target_id)
+def can_demote(chat: Chat, actor_id: int, target_id: int) -> bool:
+    if is_real_creator(chat, actor_id):
+        return True
+
+    actor_rank = get_user_rank(chat.id, actor_id)
+    target_rank = get_user_rank(chat.id, target_id)
 
     # المالك الأساسي يمكنه تنزيل أي شخص
     if actor_rank == "ownerplus":
@@ -257,10 +270,12 @@ def can_demote(chat_id, actor_id, target_id):
     return False
 
 
-def can_ban(chat_id, actor_id, target_id):
-    """التحقق مما إذا كان المستخدم يمكنه حظر/طرد المستخدم الآخر."""
-    actor_rank = get_user_rank(chat_id, actor_id)
-    target_rank = get_user_rank(chat_id, target_id)
+def can_ban(chat: Chat, actor_id: int, target_id: int) -> bool:
+    if is_real_creator(chat, actor_id):
+        return True
+
+    actor_rank = get_user_rank(chat.id, actor_id)
+    target_rank = get_user_rank(chat.id, target_id)
 
     # المالك الأساسي يمكنه حظر أي شخص
     if actor_rank == "ownerplus":
@@ -278,23 +293,23 @@ def can_ban(chat_id, actor_id, target_id):
     return False
 
 
-def can_mute(chat_id, actor_id, target_id):
-    """التحقق مما إذا كان المستخدم يمكنه كتم المستخدم الآخر."""
+def can_mute(chat: Chat, actor_id: int, target_id: int) -> bool:
     # نفس منطق الحظر تقريباً
-    return can_ban(chat_id, actor_id, target_id)
+    return can_ban(chat, actor_id, target_id)
 
 
-def can_use_tag(chat_id, user_id):
-    """التحقق مما إذا كان المستخدم يمكنه استخدام أمر التاك (مثل @all) بناءً على إعدادات المجموعة."""
+def can_use_tag(chat: Chat, user_id: int) -> bool:
+    if is_real_creator(chat, user_id):
+        return True
+
     from tg_bot.modules.sql import tag_settings_sql
-    setting = tag_settings_sql.get_setting(chat_id)
-    # setting: 'all' (الكل مسموح), 'disabled' (مغلق), أو قائمة رتب مثل ['manager','admin']
+    setting = tag_settings_sql.get_setting(chat.id)
     if setting == 'all':
         return True
     if setting == 'disabled':
         return False
     if isinstance(setting, list):
-        user_rank = get_user_rank(chat_id, user_id)
+        user_rank = get_user_rank(chat.id, user_id)
         return user_rank in setting
     # افتراضياً: المدير فما فوق
-    return is_manager(chat_id, user_id)
+    return is_manager(chat.id, user_id)
