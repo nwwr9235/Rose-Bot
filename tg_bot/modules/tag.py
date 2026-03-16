@@ -18,8 +18,8 @@ def tag_all(bot: Bot, update: Update):
     chat = update.effective_chat
     user = update.effective_user
 
-    # التحقق من الصلاحية
-    if not can_use_tag(chat.id, user.id):
+    # التحقق من الصلاحية باستخدام can_use_tag الجديدة (تمرير chat)
+    if not can_use_tag(chat, user.id):
         msg.reply_text("ليس لديك صلاحية استخدام هذا الأمر.")
         return
 
@@ -125,7 +125,6 @@ def arabic_tag_settings(bot: Bot, update: Update):
 TAG_HANDLER = CommandHandler("tag", tag_all, filters=Filters.group)
 TAG_SETTINGS_HANDLER = CommandHandler("tagsettings", tag_settings, pass_args=True, filters=Filters.group)
 
-# تم دمج فلتر regex مع فلتر المجموعة باستخدام &
 ARABIC_TAG_HANDLER = MessageHandler(
     Filters.regex(r'^\s*تاك\s*$') & Filters.group,
     arabic_tag_all
