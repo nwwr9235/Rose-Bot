@@ -1,6 +1,7 @@
 import html
 from typing import Optional, List
 
+from tg_bot.modules.helper_funcs.chat_status import can_ban
 from telegram import Message, Chat, Update, Bot, User
 from telegram.error import BadRequest
 from telegram.ext import run_async, CommandHandler, Filters
@@ -49,18 +50,17 @@ RUNBAN_ERRORS = {
 @run_async
 @bot_admin
 @can_restrict
-@user_admin
 @loggable
 def ban(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat
+    user = update.effective_user
+    message = update.effective_message
 
-    if user.id not in _TELE_GRAM_ID_S:
-        admin_user = chat.get_member(user.id)
-        if not (
-            admin_user.can_restrict_members or
-            admin_user.status == "creator"
+    # التحقق من صلاحية المستخدم الذي أرسل الأمر
+    if not can_ban(chat.id, user.id, target_user_id):  # تحتاج target_user_id
+        message.reply_text("ليس لديك صلاحية لحظر هذا المستخدم.")
+        return ""
+    # ... باقي الكود
         ):
             return
 
