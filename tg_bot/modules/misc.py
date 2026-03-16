@@ -33,9 +33,9 @@ def info_shortcut(bot: Bot, update: Update):
 # ------------------------ REGISTER HANDLERS -----------------------------
 
 # الأوامر التي نبقيها (غير مُعلّقة):
-dispatcher.add_handler(ID_HANDLER)          # /id سيظل يعمل
-dispatcher.add_handler(INFO_HANDLER)         # /info سيظل يعمل (يمكنك إزالته إذا أردت)
-
+ID_HANDLER = DisableAbleCommandHandler("id", get_id, pass_args=True)
+INFO_HANDLER = DisableAbleCommandHandler("info", info, pass_args=True)
+# ... وغيرها
 # الأوامر التي نوقفها (مُعلّقة):
 # dispatcher.add_handler(IP_HANDLER)
 # dispatcher.add_handler(TIME_HANDLER)
