@@ -10,7 +10,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, Call
 from tg_bot import dispatcher, BAN_STICKER, LOGGER
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.chat_status import bot_admin, user_admin, is_user_ban_protected, can_restrict, \
-    is_user_admin, is_user_in_chat, is_bot_admin
+    is_user_admin, is_user_in_chat, is_bot_admin, can_ban
 from tg_bot.modules.helper_funcs.extraction import extract_user_and_text
 from tg_bot.modules.helper_funcs.string_handling import extract_time
 from tg_bot.modules.log_channel import loggable
@@ -59,6 +59,11 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
 
     if not user_id:
         message.reply_text("You don't seem to be referring to a user.")
+        return ""
+
+    # التحقق من الصلاحية باستخدام can_ban الجديدة
+    if not can_ban(chat, user.id, user_id):
+        message.reply_text("ليس لديك صلاحية لحظر هذا المستخدم.")
         return ""
 
     try:
@@ -125,6 +130,11 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
 
     if not user_id:
         message.reply_text("You don't seem to be referring to a user.")
+        return ""
+
+    # التحقق من الصلاحية
+    if not can_ban(chat, user.id, user_id):
+        message.reply_text("ليس لديك صلاحية لحظر هذا المستخدم.")
         return ""
 
     try:
@@ -203,6 +213,11 @@ def kick(bot: Bot, update: Update, args: List[str]) -> str:
     user_id, reason = extract_user_and_text(message, args)
 
     if not user_id:
+        return ""
+
+    # التحقق من الصلاحية
+    if not can_ban(chat, user.id, user_id):
+        message.reply_text("ليس لديك صلاحية لطرد هذا المستخدم.")
         return ""
 
     try:
