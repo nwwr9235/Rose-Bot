@@ -1,3 +1,6 @@
+import html
+from typing import Optional, List
+
 from tg_bot.modules.sql import ranks_sql
 from tg_bot.modules.helper_funcs.chat_status import can_promote_to, can_demote, is_ownerplus, is_owner, is_creator
 
