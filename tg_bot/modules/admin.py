@@ -15,7 +15,7 @@ from tg_bot.modules.helper_funcs.extraction import extract_user
 from tg_bot.modules.helper_funcs.string_handling import markdown_parser
 from tg_bot.modules.log_channel import loggable
 from tg_bot.modules.sql import ranks_sql
-from tg_bot.modules.helper_funcs.chat_status import can_promote_to, can_demote
+from tg_bot.modules.helper_funcs.chat_status import can_promote_to, can_demote, is_real_creator
 
 # ==================== الدوال الأصلية (promote, demote, pin, unpin, invite, link, adminlist) ====================
 
@@ -292,8 +292,8 @@ def arabic_promote(bot: Bot, update: Update):
         msg.reply_text("لم أتمكن من العثور على المستخدم.")
         return
 
-    # التحقق من الصلاحية
-    if not can_promote_to(chat.id, user.id, target_user_id, new_rank):
+    # التحقق من الصلاحية (تم تمرير chat وليس chat.id)
+    if not can_promote_to(chat, user.id, target_user_id, new_rank):
         msg.reply_text("ليس لديك صلاحية لرفع هذا المستخدم إلى هذه الرتبة.")
         return
 
@@ -321,7 +321,7 @@ def arabic_demote(bot: Bot, update: Update):
         msg.reply_text("لم أتمكن من العثور على المستخدم.")
         return
 
-    if not can_demote(chat.id, user.id, target_user_id):
+    if not can_demote(chat, user.id, target_user_id):
         msg.reply_text("ليس لديك صلاحية لتنزيل هذا المستخدم.")
         return
 
@@ -345,6 +345,12 @@ def arabic_show_rank(bot: Bot, update: Update):
 
     if not target_user_id:
         msg.reply_text("لم أتمكن من العثور على المستخدم.")
+        return
+
+    # التحقق أولاً من المالك الحقيقي
+    if is_real_creator(chat, target_user_id):
+        target_name = bot.get_chat(target_user_id).first_name
+        msg.reply_text(f"رتبة {target_name}: مالك المجموعة")
         return
 
     rank = ranks_sql.get_rank(chat.id, target_user_id)
