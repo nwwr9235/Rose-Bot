@@ -17,8 +17,8 @@ from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.extraction import extract_user
 from tg_bot.modules.helper_funcs.filters import CustomFilters
 
-# ... (keep all the existing constants and functions: RUN_STRINGS, SLAP_TEMPLATES, ITEMS, THROW, HIT, GMAPS_LOC, GMAPS_TIME)
-# ... (keep all existing functions: runs, slap, get_bot_ip, get_id, info, get_time, echo, gdpr, markdown_help, stats, stickerid, getsticker)
+# ... (ضع هنا جميع الثوابت والدوال الموجودة أصلاً في ملفك: RUN_STRINGS, SLAP_TEMPLATES, ITEMS, THROW, HIT, GMAPS_LOC, GMAPS_TIME، والدوال runs, slap, get_bot_ip, get_id, info, get_time, echo, gdpr, markdown_help, stats, stickerid, getsticker)
+# لا تحذف أي شيء من المحتوى الأصلي، فقط أضف ما يلي في نهاية الملف:
 
 # ======================== NEW SHORTCUT FUNCTION =========================
 @run_async
@@ -32,8 +32,11 @@ def info_shortcut(bot: Bot, update: Update):
 
 # ------------------------ REGISTER HANDLERS -----------------------------
 
-# تعطيل جميع الأوامر الأصلية في misc.py بإزالة تسجيلها
-# dispatcher.add_handler(ID_HANDLER)
+# الأوامر التي نبقيها (غير مُعلّقة):
+dispatcher.add_handler(ID_HANDLER)          # /id سيظل يعمل
+dispatcher.add_handler(INFO_HANDLER)         # /info سيظل يعمل (يمكنك إزالته إذا أردت)
+
+# الأوامر التي نوقفها (مُعلّقة):
 # dispatcher.add_handler(IP_HANDLER)
 # dispatcher.add_handler(TIME_HANDLER)
 # dispatcher.add_handler(RUNS_HANDLER)
@@ -44,9 +47,6 @@ def info_shortcut(bot: Bot, update: Update):
 # dispatcher.add_handler(GDPR_HANDLER)
 # dispatcher.add_handler(STICKERID_HANDLER)
 # dispatcher.add_handler(GETSTICKER_HANDLER)
-
-# الاحتفاظ بأمر /info إذا أردت (يمكنك تعطيله أيضاً بإزالة السطر التالي)
-dispatcher.add_handler(INFO_HANDLER)
 
 # الأمر العربي الجديد: حرف "ا" أو "أ" فقط (مع مسافات قبل أو بعد)
 INFO_SHORTCUT_HANDLER = MessageHandler(
