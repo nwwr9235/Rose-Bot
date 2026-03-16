@@ -1,11 +1,11 @@
 from math import ceil
-from typing import Dict, List, Optional
-from html import escape
+from typing import List, Dict
 
-from telegram import InlineKeyboardButton, Bot, Update
-from telegram.constants import MessageLimit, ParseMode  # الاستيراد الصحيح
+from telegram import MAX_MESSAGE_LENGTH, InlineKeyboardButton, Bot, ParseMode
+from telegram.error import TelegramError
 
-from tg_bot import LOGGER, SUDO_USERS, OWNER_ID
+from tg_bot import LOAD, NO_LOAD
+
 
 class EqInlineKeyboardButton(InlineKeyboardButton):
     def __eq__(self, other):
@@ -17,73 +17,116 @@ class EqInlineKeyboardButton(InlineKeyboardButton):
     def __gt__(self, other):
         return self.text > other.text
 
-def split_list_into_chunks(lst: List, chunk_size: int) -> List[List]:
-    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
-def paginate_modules(page_n: int, module_dict: Dict, prefix, chat=None) -> List[List[InlineKeyboardButton]]:
-    if not chat:
-        modules = sorted([EqInlineKeyboardButton(x.__mod_name__,
-                                                 callback_data="{}_module({})".format(prefix, x.__mod_name__.lower()))
-                          for x in module_dict.values()])
+def split_message(msg: str) -> List[str]:
+    if len(msg) < MAX_MESSAGE_LENGTH:
+        return [msg]
+
     else:
-        modules = sorted([EqInlineKeyboardButton(x.__mod_name__,
-                                                 callback_data="{}_module({},{})".format(prefix, chat, x.__mod_name__.lower()))
-                          for x in module_dict.values()])
-
-    pairs = split_list_into_chunks(modules, 2)
-    if len(pairs) > 1:
-        if page_n == 0:
-            next_page_button = InlineKeyboardButton("التالي ➡️", callback_data="{}_next({})".format(prefix, page_n + 1))
-            pairs.append([next_page_button])
-        elif page_n == len(pairs) - 1:
-            prev_page_button = InlineKeyboardButton("⬅️ السابق", callback_data="{}_prev({})".format(prefix, page_n - 1))
-            pairs.append([prev_page_button])
+        lines = msg.splitlines(True)
+        small_msg = ""
+        result = []
+        for line in lines:
+            if len(small_msg) + len(line) < MAX_MESSAGE_LENGTH:
+                small_msg += line
+            else:
+                result.append(small_msg)
+                small_msg = line
         else:
-            prev_page_button = InlineKeyboardButton("⬅️ السابق", callback_data="{}_prev({})".format(prefix, page_n - 1))
-            next_page_button = InlineKeyboardButton("التالي ➡️", callback_data="{}_next({})".format(prefix, page_n + 1))
-            pairs.append([prev_page_button, next_page_button])
+            # Else statement at the end of the for loop, so append the leftover string.
+            result.append(small_msg)
+
+        return result
+
+
+def paginate_modules(page_n: int, module_dict: Dict, prefix, chat=None) -> List:
+    if not chat:
+        modules = sorted(
+            [EqInlineKeyboardButton(x.__mod_name__,
+                                    callback_data="{}_module({})".format(prefix, x.__mod_name__.lower())) for x
+             in module_dict.values()])
+    else:
+        modules = sorted(
+            [EqInlineKeyboardButton(x.__mod_name__,
+                                    callback_data="{}_module({},{})".format(prefix, chat, x.__mod_name__.lower())) for x
+             in module_dict.values()])
+
+
+
+    pairs = [modules[i * 3 : (i + 1) * 3] for i in range((len(modules) + 3 - 1) // 3)]
+    round_num = len(modules) / 3
+    calc = len(modules) - round(round_num)
+    if calc == 1:
+        pairs.append((modules[-1],))
+    elif calc == 2:
+        pairs.append((modules[-1],))
+
+
+#    pairs = list(zip(modules[::2], modules[1::2]))
+
+#    if len(modules) % 2 == 1:
+#        pairs.append((modules[-1],))
+
+#    max_num_pages = ceil(len(pairs) / 7)
+#   modulo_page = page_n % max_num_pages
+
+    # can only have a certain amount of buttons side by side
+#    if len(pairs) > 7:
+#        pairs = pairs[modulo_page * 7:7 * (modulo_page + 1)] + [
+#            (EqInlineKeyboardButton("<", callback_data="{}_prev({})".format(prefix, modulo_page)),
+#             EqInlineKeyboardButton(">", callback_data="{}_next({})".format(prefix, modulo_page)))]
 
     return pairs
 
-def build_keyboard(buttons: List) -> List[List[InlineKeyboardButton]]:
-    keyb = []
-    for btn in buttons:
-        if btn["same_line"] and keyb:
-            keyb[-1].append(InlineKeyboardButton(btn["name"], url=btn["url"]))
-        else:
-            keyb.append([InlineKeyboardButton(btn["name"], url=btn["url"])])
-    return keyb
 
-def revert_buttons(buttons: List) -> str:
-    res = ""
-    for btn in buttons:
-        if btn["same_line"]:
-            res += "\n[{}](buttonurl://{}:same)".format(btn["name"], btn["url"])
-        else:
-            res += "\n[{}](buttonurl://{})".format(btn["name"], btn["url"])
-    return res
-
-def is_module_loaded(name: str) -> bool:
-    return name in list(LOGGER.manager.loggerDict.keys())
-
-async def send_to_list(bot: Bot, send_to: list, message: str, markdown=False, html=False) -> None:
+def send_to_list(bot: Bot, send_to: list, message: str, markdown=False, html=False) -> None:
     if html and markdown:
-        raise ValueError("لا يمكن استخدام علامتي تنسيق معًا.")
+        raise Exception("Can only send with either markdown or HTML!")
     for user_id in set(send_to):
         try:
             if markdown:
-                await bot.send_message(user_id, message, parse_mode=ParseMode.MARKDOWN)
+                bot.send_message(user_id, message, parse_mode=ParseMode.MARKDOWN)
             elif html:
-                await bot.send_message(user_id, message, parse_mode=ParseMode.HTML)
+                bot.send_message(user_id, message, parse_mode=ParseMode.HTML)
             else:
-                await bot.send_message(user_id, message)
-        except Exception as e:
-            LOGGER.warning(f"فشل إرسال رسالة إلى {user_id}: {e}")
+                bot.send_message(user_id, message)
+        except TelegramError:
+            pass  # ignore users who fail
 
-def build_keyboard_parser(bot, chat_id, text, buttons):
-    return None
 
-def escape_mentions_using_eggs(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
+def build_keyboard(buttons):
+    keyb = []
+    for btn in buttons:
+        mybelru = btn.url
+        ik = None
+        cond_one = mybelru.startswith(("http", "tg://"))
+        # to fix #33801 inconsistencies
+        cond_two = (
+            "t.me/" in mybelru or
+            "telegram.me/" in mybelru
+        )
+        if cond_one or cond_two:
+            ik = InlineKeyboardButton(btn.name, url=mybelru)
+        else:
+            ik = InlineKeyboardButton(btn.name, callback_data=f"rsct_{btn.id}_33801")
+        if ik:
+            if btn.same_line and keyb:
+                keyb[-1].append(ik)
+            else:
+                keyb.append([ik])
+    return keyb
+
+
+def revert_buttons(buttons):
+    res = ""
+    for btn in buttons:
+        if btn.same_line:
+            res += "\n[{}](buttonurl://{}:same)".format(btn.name, btn.url)
+        else:
+            res += "\n[{}](buttonurl://{})".format(btn.name, btn.url)
+
+    return res
+
+
+def is_module_loaded(name):
+    return (not LOAD or name in LOAD) and name not in NO_LOAD
